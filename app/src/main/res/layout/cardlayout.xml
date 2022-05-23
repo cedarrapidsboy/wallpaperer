@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cv"
+    android:layout_width="@dimen/_150sdp"
+    android:layout_height="@dimen/_150sdp"
+    android:padding="16dp"
+    android:theme="@style/AppTheme"
+    app:cardCornerRadius="5dp"
+    app:cardElevation="2dp"
+    app:cardUseCompatPadding="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:forceHasOverlappingRendering="false">
+
+        <ImageView
+            android:id="@+id/iv_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/loading_image"
+            android:scaleType="fitXY"
+            app:layout_constrainedHeight="false"
+            app:layout_constrainedWidth="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/card_stats"
+            app:layout_constraintVertical_bias="0.389"
+            app:layout_constraintWidth_percent="@fraction/thumbnail_ratio"
+            tools:srcCompat="@drawable/ic_baseline_pending_24" />
+
+        <View
+            android:id="@+id/touch_blocker"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/divider"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <ImageView
+            android:id="@+id/card_gradient"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/image_gradient"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/gradient_shape" />
+
+        <TextView
+            android:id="@+id/textFileName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="6dp"
+            android:shadowColor="@color/black"
+            android:shadowDx="3"
+            android:shadowDy="2"
+            android:shadowRadius="5"
+            android:singleLine="true"
+            android:text="@string/text_sample_filename"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toTopOf="@+id/divider"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!--<TextView
+            android:id="@+id/tvSetWallpaper"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:contentDescription="@string/set_wallpaper"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:shadowColor="#000000"
+            android:shadowDx="3"
+            android:shadowDy="2"
+            android:shadowRadius="5"
+            android:text="@string/set_wallpaper"
+            android:textColor="?attr/actionMenuTextColor"
+            android:textSize="24sp"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_image"
+            app:layout_constraintStart_toStartOf="parent" />-->
+
+        <androidx.constraintlayout.helper.widget.Flow
+            android:id="@+id/card_stats"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="@color/black"
+            android:orientation="horizontal"
+            android:padding="6dp"
+            android:visibility="visible"
+            app:constraint_referenced_ids="tv_date,tv_type,tv_size"
+            app:flow_horizontalStyle="spread_inside"
+            app:flow_verticalAlign="baseline"
+            app:flow_wrapMode="none"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/date_default_text"
+            android:gravity="left"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:singleLine="true"
+            android:text="@string/date_default_text"
+            android:textAlignment="gravity"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            tools:ignore="RtlHardcoded,TextContrastCheck"
+            tools:layout_editor_absoluteX="31dp"
+            tools:layout_editor_absoluteY="17dp" />
+
+        <TextView
+            android:id="@+id/tv_size"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/size_default_text"
+            android:gravity="right"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:singleLine="true"
+            android:text="@string/size_default_text"
+            android:textAlignment="gravity"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@+id/card_stats"
+            app:layout_constraintStart_toEndOf="@+id/tv_date"
+            app:layout_constraintTop_toTopOf="@+id/card_stats"
+            tools:ignore="RtlHardcoded,TextContrastCheck" />
+
+        <TextView
+            android:id="@+id/tv_type"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/image_type_default_text"
+            android:gravity="center"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:singleLine="true"
+            android:text="@string/image_type_default_text"
+            android:textAlignment="gravity"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@+id/card_stats"
+            app:layout_constraintEnd_toStartOf="@+id/tv_date"
+            app:layout_constraintTop_toTopOf="@+id/card_stats"
+            tools:ignore="TextContrastCheck" />
+
+        <ImageView
+            android:id="@+id/iv_share"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_image"
+            app:layout_constraintEnd_toEndOf="@+id/iv_image"
+            app:srcCompat="@drawable/ic_baseline_share_24"
+            app:tint="@color/color_card_controls" />
+
+        <ImageView
+            android:id="@+id/iv_setWp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_image"
+            app:layout_constraintStart_toStartOf="@+id/iv_image"
+            app:srcCompat="@drawable/ic_baseline_skip_next_24"
+            app:tint="@color/color_card_controls" />
+
+        <View
+            android:id="@+id/divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_marginBottom="56dp"
+            android:background="?android:attr/listDivider"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

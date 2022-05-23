@@ -1,0 +1,68 @@
+<resources>
+    <string name="app_name">Wallpaperer</string>
+    <string name="add_image_s">Add Image(s)</string>
+    <string name="contains_wallpaper_cards">Contains wallpaper cards</string>
+    <string name="unable_read">Unable to read file.</string>
+    <string name="toast_wallpaper_changing">Changing wallpaper</string>
+    <string name="toast_wallpaper_changed">Changed wallpaper</string>
+    <string name="next_wallpaper">Change wallpaper</string>
+    <string name="add_button_description">Select image(s) from a file chooser.</string>
+    <string name="label_name">Filename:</string>
+    <string name="text_sample_filename">sample_file_name.spl</string>
+    <string name="text_hascode_prefix">ID:</string>
+    <string name="work_random_wallpaper_id">work_random_wallpaper</string>
+    <string name="toast_rnd_enabled">Random wallpapers enabled</string>
+    <string name="toast_rnd_disabled">Random wallpapers disabled</string>
+    <string name="loading_image">Loading image</string>
+    <string name="set_wallpaper">Set Now</string>
+    <string name="image_type_default_text">image/png</string>
+    <string name="size_default_text">3MB</string>
+    <string name="date_default_text">2022–10–24</string>
+    <string name="file_size">%3.1f MiB</string>
+    <string name="image_gradient">Image gradient</string>
+    <string name="menu_switch">Switch</string>
+    <string name="remove_all">Remove all</string>
+    <string name="str_button_switch">Switch</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+
+    <!-- Preference Titles -->
+    <string name="preference_category_display">Display</string>
+
+    <string name="preference_idle_description">Avoid disruption. If enabled wallpaper will not change while you are using your device.</string>
+    <string name="preference_idle_title">Sleep only</string>
+    <string name="preference_compress_description">Save space by compressing images. Reduces wallpaper image quality.</string>
+    <string name="preference_compress_title">Recompress images</string>
+    <string name="preference_columns_description">Select the max number of thumbnail columns to display. Fewer columns may be shown.</string>
+    <string name="preference_columns_title">Thumbnail columns</string>
+    <string name="preference_category_performance">Performance</string>
+    <string name="preference_columns">preference_columns</string>
+    <string name="preference_idle">preference_idle</string>
+    <string name="preference_recompress">preference_recompress</string>
+    <string name="toast_add_an_image_toggle">Add an image before enabling the wallpaper changer.</string>
+    <string name="preference_time_delay">preference_time_delay</string>
+    <string name="toast_delay_too_short">Delay too short. Using 15 minutes instead.</string>
+    <string name="delay_preference_summary">Time between wallpaper changes.</string>
+    <string name="delay_preference_title">Wallpaper delay</string>
+    <string name="preference_card_stats">preference_card_stats</string>
+    <string name="title_preference_card_stats">Show wallpaper metadata</string>
+    <string name="msg_no_images_to_action">No images. Nothing to do.</string>
+    <string name="dialog_title_delete_all">Remove all images?</string>
+    <string name="dialog_msg_delete_all">This will remove all images. You will need to re-add them from their original sources.</string>
+    <string name="dialog_button_no">No</string>
+    <string name="dialog_button_yes_delete_all">Yes, remove them</string>
+    <string name="dialog_button_yes_add_intent">Yes</string>
+    <string name="dialog_title_add_intent">Add new image(s)?</string>
+    <string name="dialog_msg_add_intent_message">An app sent you images. Would you like to add them to your list?</string>
+    <string name="toast_changer_active">Wallpaper changer is active</string>
+    <string name="intent_chooser_select_images">Select images(s)</string>
+    <string name="msg_swipe_item_removed">Item was removed from the list.</string>
+    <string name="snack_action_undo">UNDO</string>
+    <string name="dialog_processing_images">Processing images…</string>
+    <string name="first_time">first_time</string>
+    <string name="loading_error_fnf">Unable to save image. The selected source image has disappeared. Please try again.</string>
+    <string name="loading_error_out_of_space">Out of storage space</string>
+    <string name="loading_error_not_an_image">File is not an image.</string>
+    <string name="loading_error_precheck_low_space">Cannot add file. Storage space is low. Free some space or consider moving this app to external storage.</string>
+    <string name="loading_error_cannot_mkdir">Unable to save image. Cannot create storage directory.</string>
+
+</resources>

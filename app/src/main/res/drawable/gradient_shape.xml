@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:centerColor="#00FFFFFF"
+        android:centerY="0.5"
+        android:endColor="@color/cardview_dark_background"
+        android:startColor="#00FFFFFF"
+        android:type="linear" />
+</shape>

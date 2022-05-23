@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/constraintlayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#00FFFFFF"
+    android:foregroundTint="#00FFFFFF"
+    android:outlineAmbientShadowColor="#00FFFFFF"
+    android:outlineSpotShadowColor="#00FFFFFF"
+    android:theme="@style/AppTheme"
+    tools:context=".MainActivity">
+
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_horizontal"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:liftOnScroll="true"
+        app:liftOnScrollTargetViewId="@id/rv">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:actionMenuTextColor="@color/white"
+            android:background="?android:attr/windowBackground"
+            android:elevation="4dp"
+            android:minHeight="?attr/actionBarSize"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_scrollFlags="scroll|enterAlways"
+            app:logo="@drawable/ic_circle_paint"
+            app:popupTheme="@style/AppTheme" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/floatingActionButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_margin="@dimen/_16sdp"
+        android:clickable="true"
+        android:contentDescription="@string/add_button_description"
+        android:src="@drawable/ic_baseline_add_128"
+        app:fabCustomSize="@dimen/_56sdp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:maxImageSize="@dimen/_24sdp"
+        app:shapeAppearance="@style/Theme.AppCompat.Light"
+        app:shapeAppearanceOverlay="@style/Theme.AppCompat.Light"
+        tools:ignore="TouchTargetSizeCheck" />
+
+    <View
+        android:id="@+id/view_blocker"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#008C2525" />
+
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
