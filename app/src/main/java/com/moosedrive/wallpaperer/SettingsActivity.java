@@ -1,8 +1,12 @@
 package com.moosedrive.wallpaperer;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
@@ -28,6 +32,36 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class SettingsFragment extends PreferenceFragmentCompat {
+        @Override
+        public void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+
+
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            // Change "button" text to open battery optimization based on current optimization setting
+            // The scheduled worker does not fire consistently when optimized
+            Preference button = findPreference(getString(R.string.preference_optimization_key));
+            PowerManager pm = (PowerManager) requireContext().getSystemService(POWER_SERVICE);
+            if (button != null) {
+                if (pm.isIgnoringBatteryOptimizations(requireContext().getPackageName())) {
+                    button.setSummary(R.string.preference_optimization_summary_good);
+                } else {
+                    button.setSummary(R.string.preference_optimization_summary);
+                }
+                button.setOnPreferenceClickListener(preference -> {
+                    Intent intent = new Intent();
+                    intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    preference.getContext().startActivity(intent);
+                    return true;
+                });
+            }
+
+        }
+
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey);

@@ -34,6 +34,11 @@
             android:title="@string/delay_preference_title"
             android:defaultValue="00:15"
             android:summary="@string/delay_preference_summary"/>
+        <Preference
+            android:title="@string/preference_optimization_title"
+            android:summary="@string/preference_optimization_summary"
+            android:key="@string/preference_optimization_key"
+            />
     </PreferenceCategory>
 
 </PreferenceScreen>

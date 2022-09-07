@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
@@ -12,8 +13,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.PowerManager;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
+import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -36,6 +39,7 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -338,6 +342,13 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 processToggle(false);
             } else {
                 processToggle(isChecked);
+                /*PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                String packageName = context.getPackageName();
+                Intent intent = new Intent();
+                if (!pm.isIgnoringBatteryOptimizations(context.getPackageName())) {
+                    intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    context.startActivity(intent);
+                }*/
             }
         });
         //Start changing the wallpaper
@@ -475,6 +486,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                         .setRequiresDeviceIdle(bReqIdle)
                         .setRequiresBatteryNotLow(true)
                         .build())
+                .setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS)
                 .build();
         WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(getString(R.string.work_random_wallpaper_id)
@@ -726,5 +738,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 .withTransitionFrom((ImageView) view)
                 .withStartPosition(pos)
                 .show();
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
     }
 }
