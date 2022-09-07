@@ -65,8 +65,8 @@
     <string name="loading_error_precheck_low_space">Cannot add file. Storage space is low. Free some space or consider moving this app to external storage.</string>
     <string name="loading_error_cannot_mkdir">Unable to save image. Cannot create storage directory.</string>
     <string name="preference_optimization_title">Battery Optimization Settings</string>
-    <string name="preference_optimization_summary">Wallpaper delay may be unpredictable when battery use is optimized by the device. Click here and remove this app from the optimized apps list.</string>
+    <string name="preference_optimization_summary">Wallpaper delay may be unpredictable due to battery optimization settings. Click here and remove this app from the optimized apps list.</string>
     <string name="preference_optimization_key">preference_battery_optimization_intent</string>
-    <string name="preference_optimization_summary_good">Good news! Battery optimization is disabled for most accurate wallpaper delay.</string>
+    <string name="preference_optimization_summary_good">Good news! Battery optimization is disabled resulting in accurate wallpaper delays.</string>
 
 </resources>
