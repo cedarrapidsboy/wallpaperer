@@ -32,7 +32,7 @@
     <string name="preference_idle_title">Sleep only</string>
     <string name="preference_compress_description">Save space by compressing images. Reduces wallpaper image quality.</string>
     <string name="preference_compress_title">Recompress images</string>
-    <string name="preference_columns_description">Select the max number of thumbnail columns to display. Fewer columns may be shown.</string>
+    <string name="preference_columns_description">Select the max number of thumbnail columns to display. Depending on display size, fewer columns may be shown.</string>
     <string name="preference_columns_title">Thumbnail columns</string>
     <string name="preference_category_performance">Performance</string>
     <string name="preference_columns">preference_columns</string>
