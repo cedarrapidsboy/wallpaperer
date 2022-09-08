@@ -2,6 +2,7 @@ package com.moosedrive.wallpaperer;
 
 import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -111,11 +112,24 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> {
 
     @Override
     public void onViewRecycled(@NonNull ImageHolder holder) {
-        Glide.with(context).clear(holder.ivImage);
-        holder.ivImage.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_baseline_pending_24));
+        if (isValidContextForGlide(context)){
+            Glide.with(context).clear(holder.ivImage);
+        }
+        //holder.ivImage.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_baseline_pending_24));
         super.onViewRecycled(holder);
     }
 
+    //Fixed a problem where changing column count would generate an exception
+    public static boolean isValidContextForGlide(final Context context) {
+        if (context == null) {
+            return false;
+        }
+        if (context instanceof Activity) {
+            final Activity activity = (Activity) context;
+            return !activity.isDestroyed() && !activity.isFinishing();
+        }
+        return true;
+    }
     @Override
     public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
