@@ -68,5 +68,6 @@
     <string name="preference_optimization_summary">Wallpaper delay may be unpredictable due to battery optimization settings. Click here and remove this app from the optimized apps list.</string>
     <string name="preference_optimization_key">preference_battery_optimization_intent</string>
     <string name="preference_optimization_summary_good">Good news! Battery optimization is disabled resulting in accurate wallpaper delays.</string>
+    <string name="delay_dialog_title">Set delay (hh:mm)</string>
 
 </resources>

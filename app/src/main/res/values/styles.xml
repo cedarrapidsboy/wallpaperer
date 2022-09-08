@@ -44,4 +44,8 @@
         <item name="android:textSize">@dimen/_8sdp</item>
     </style>
 
+    <style name="SpinnerTimePicker" parent="android:Widget.Material.Light.TimePicker">
+        <item name="android:timePickerMode">spinner</item>
+    </style>
+
 </resources>

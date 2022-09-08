@@ -14,5 +14,6 @@
         <!-- Customize your theme here. -->
         <item name="android:textColorPrimary">@color/white</item>
         <item name="actionMenuTextColor">@color/white</item>
+        <item name="android:timePickerStyle">@style/SpinnerTimePicker</item>
     </style>
 </resources>
