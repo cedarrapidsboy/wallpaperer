@@ -22,6 +22,8 @@ import java.security.NoSuchAlgorithmException;
 
 public class StorageUtils {
 
+    private static String THUMBDIR = "thumbs";
+
     public static Bitmap resizeBitmapFitXY(int width, int height, Bitmap bitmap) {
         Bitmap background = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         float originalWidth = bitmap.getWidth(), originalHeight = bitmap.getHeight();
@@ -91,6 +93,72 @@ public class StorageUtils {
                     e.printStackTrace();
                 }
         }
+    }
+
+    public static File getStorageFolder(Context context) {
+        String sPictureStorage = context.getFilesDir().getPath();
+        return new File(sPictureStorage);
+    }
+
+    public static Uri getThumbnailUri(Context context, ImageObject imgObj) {
+        File thumbnailFile = new File(new File(imgObj.getUri().getPath()).getParentFile().getPath() + File.separator + THUMBDIR + File.separator + imgObj.getId());
+        if (!thumbnailFile.exists()) {
+            try {
+                Uri newThumbUri = saveThumbnail(context,imgObj.getUri(), imgObj.getId());
+                if (newThumbUri != null)
+                    thumbnailFile = new File(newThumbUri.getPath());
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+        return Uri.fromFile(thumbnailFile);
+    }
+
+    public static Uri saveThumbnail(Context context, Uri sourceuri, String destFileName) throws IOException {
+        BufferedOutputStream bos = null;
+        InputStream input = null;
+        String destinationDir = getStorageFolder(context).getPath() + File.separator + THUMBDIR;
+
+        try {
+
+            boolean directorySetupResult;
+            File destDir = new File(destinationDir);
+            if (!destDir.exists()) {
+                directorySetupResult = destDir.mkdirs();
+            } else if (!destDir.isDirectory()) {
+                directorySetupResult = replaceFileWithDir(destinationDir);
+            } else {
+                directorySetupResult = true;
+            }
+            if (directorySetupResult) {
+                String destination = destinationDir + File.separator + destFileName;
+                File destinationFile = new File(destination);
+
+                input = context.getContentResolver().openInputStream(sourceuri);
+                bos = new BufferedOutputStream(new FileOutputStream(destination));
+                // Recompress before writing to new file
+                Bitmap originalBm = BitmapFactory.decodeStream(input);
+                originalBm = resizeAspect(64, 64, originalBm);
+                originalBm.compress(Bitmap.CompressFormat.WEBP, 90, bos);
+                input.close();
+                bos.flush();
+                bos.close();
+                return Uri.fromFile(destinationFile);
+
+            }
+        } finally {
+            try {
+                if (input != null)
+                    input.close();
+                if (bos != null) {
+                    bos.flush();
+                    bos.close();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 
     public static Uri saveBitmap(Context context, Uri sourceuri, long size, String destinationDir, String destFileName, boolean recompress) throws IOException {
@@ -203,9 +271,12 @@ public class StorageUtils {
         File[] ls = destDir.listFiles();
         if (ls != null) {
             for (File f : ls) {
-                if (img.getName().equals(f.getName())) {
-                    //noinspection ResultOfMethodCallIgnored
+                if (f.isFile() && img.getName().equals(f.getName())) {
+                    File thumbnail = new File(f.getParentFile().getPath() + File.separator + THUMBDIR + File.separator + img.getId());
+                    if (thumbnail.exists())
+                        thumbnail.delete();
                     f.delete();
+
                 }
             }
         }
@@ -217,9 +288,21 @@ public class StorageUtils {
         File[] ls = destDir.listFiles();
         if (ls != null) {
             for (File f : ls) {
-                if (is.getImageObjectByName(f.getName()) == null) {
+                if (f.isFile() && is.getImageObjectByName(f.getName()) == null) {
                     //noinspection ResultOfMethodCallIgnored
                     f.delete();
+                }
+            }
+        }
+        File thumbDir = new File(destDir + File.separator + THUMBDIR);
+        if (thumbDir.exists()) {
+            ls = thumbDir.listFiles();
+            if (ls != null) {
+                for (File f : ls) {
+                    if (f.isFile() && is.getImageObject(f.getName()) == null) {
+                        //noinspection ResultOfMethodCallIgnored
+                        f.delete();
+                    }
                 }
             }
         }

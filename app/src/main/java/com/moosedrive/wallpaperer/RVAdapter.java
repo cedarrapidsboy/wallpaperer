@@ -91,8 +91,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> {
         Glide
                 .with(context)
                 .load(img.getUri())
+                .thumbnail(Glide.with(context)
+                        .load(img.getThumbUri(context))
+                        .centerCrop())
                 .centerCrop()
-                .priority(Priority.NORMAL)
                 .transition(withCrossFade())
                 .into(holder.ivImage);
 

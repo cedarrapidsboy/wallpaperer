@@ -397,8 +397,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             loadingDialog.startLoadingdialog(sources.size());
             for (Uri uri : sources) {
                 Thread t = new Thread(() -> {
-                    String sPictureStorage = getBaseContext().getFilesDir().getPath();
-                    File fImageStorageFolder = new File(sPictureStorage);
+                    File fImageStorageFolder = StorageUtils.getStorageFolder(getBaseContext());
                     StatFs stats = new StatFs(fImageStorageFolder.getAbsolutePath());
                     long bytesAvailable = stats.getAvailableBlocksLong() * stats.getBlockSizeLong();
                     if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs())
@@ -430,6 +429,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date(last));
+                                        img.generateThumbnail(context);
                                         activity.runOnUiThread(() -> {
                                             adapter.addItem(img);
                                             adapter.saveToPrefs();
