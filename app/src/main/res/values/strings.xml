@@ -69,5 +69,7 @@
     <string name="preference_optimization_key">preference_battery_optimization_intent</string>
     <string name="preference_optimization_summary_good">Good news! Battery optimization is disabled resulting in accurate wallpaper delays.</string>
     <string name="delay_dialog_title">Set delay (hh:mm)</string>
+    <string name="preference_image_crop">preference_image_crop</string>
+    <string name="preference_image_crop_title">Crop Image to Fill Screen</string>
 
 </resources>

@@ -11,6 +11,7 @@ import android.view.WindowManager;
 import android.view.WindowMetrics;
 
 import androidx.annotation.NonNull;
+import androidx.preference.PreferenceManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -75,7 +76,8 @@ public class WallpaperWorker extends Worker {
                     pfd.close();
                     new Thread(() -> {
                         try {
-                            Bitmap bitmap = StorageUtils.resizeBitmapFitXY(width, height, bitmapSource);
+                            boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
+                            Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
                             WallpaperManager.getInstance(context).setBitmap(bitmap);
                         } catch (IOException e) {
                             e.printStackTrace();
