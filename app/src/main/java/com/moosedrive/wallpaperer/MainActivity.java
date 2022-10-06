@@ -70,6 +70,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import me.zhanghai.android.fastscroll.FastScrollerBuilder;
+
 /**
  * The type Main activity.
  * <p>
@@ -240,6 +242,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         rv.setItemViewCacheSize(50);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
+        new FastScrollerBuilder(rv).build();
     }
 
     private boolean processIncomingIntentsAndExit() {

@@ -75,4 +75,5 @@ dependencies {
     implementation 'com.github.stfalcon-studio:StfalconImageViewer:v1.0.1'
 
     implementation 'com.github.amlcurran.showcaseview:library:5.4.3'
+    implementation 'me.zhanghai.android.fastscroll:library:1.1.8'
 }
