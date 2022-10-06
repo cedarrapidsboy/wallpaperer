@@ -168,7 +168,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @NonNull
     @Override
     public String getPopupText(int position) {
-        return Integer.toString(position) + "/" + Integer.toString(store.size());
+        return (position + 1) + " of " + store.size();
     }
 
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
@@ -203,14 +203,14 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         @Override
         public void onClick(View view) {
             PackageManager packageManager = context.getPackageManager();
-            ImageObject img = store.getImageObject(getAdapterPosition());
+            ImageObject img = store.getImageObject(getAbsoluteAdapterPosition());
             if (clickListener != null && view == ivSetWp) {
-                clickListener.onSetWpClick(getAdapterPosition());
+                clickListener.onSetWpClick(getAbsoluteAdapterPosition());
                 ivSetWp.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_change_wallpaper));
             }
             if (clickListener != null && view == ivImage) {
                 //TODO Fullscreen view
-                clickListener.onImageClick(getAdapterPosition(), view);
+                clickListener.onImageClick(getAbsoluteAdapterPosition(), view);
             }
             if (clickListener != null && view == ivShare) {
                 ivShare.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_change_wallpaper));
