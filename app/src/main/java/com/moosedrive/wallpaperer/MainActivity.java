@@ -228,7 +228,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                         , columns > 0 ? columns : 1));
         adapter = new RVAdapter(context);
         adapter.setHasStableIds(true);
-        rv.setItemViewCacheSize(50);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
         new FastScrollerBuilder(rv).useMd2Style().build();
@@ -627,7 +626,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int i) {
 
 
-                final int position = viewHolder.getAdapterPosition();
+                final int position = viewHolder.getAbsoluteAdapterPosition();
                 final ImageObject item = adapter.getData().get(position);
                 boolean toggled = false;
                 adapter.removeItem(position);
