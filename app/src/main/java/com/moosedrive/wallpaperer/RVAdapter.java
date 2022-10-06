@@ -55,9 +55,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         //int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString("preference_columns", "2"));
         int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getString(R.string.preference_columns), "2"));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
+        // Set lower limit on thumbnail size (need space for buttons and metadata text) based on display size
         if (width / columns < (int) context.getResources().getDimension(R.dimen.card_size_min))
             columns = (int) (width / context.getResources().getDimension(R.dimen.card_size_min));
-        //Create a thumbnail that will be big enough for both portrait and landscape (without evicting the thumbcache to resize)
+        //Create a thumbnail that will be big enough for both portrait and landscape
         return Math.min(width / columns, Math.min(width, height));
     }
 
