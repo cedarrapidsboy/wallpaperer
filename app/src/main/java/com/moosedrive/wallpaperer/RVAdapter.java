@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.text.Html;
@@ -19,6 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.constraintlayout.helper.widget.Flow;
@@ -27,18 +29,22 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.ListPreloader;
 import com.bumptech.glide.Priority;
+import com.bumptech.glide.RequestBuilder;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 import me.zhanghai.android.fastscroll.PopupTextProvider;
 
-public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> implements PopupTextProvider {
+public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> implements PopupTextProvider, ListPreloader.PreloadModelProvider<ImageObject> {
 
     final ImageStore store;
     final Context context;
@@ -94,11 +100,8 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         Glide
                 .with(context)
                 .load(img.getUri())
-                .thumbnail(Glide.with(context)
-                        .load(img.getThumbUri(context))
-                        .centerCrop())
                 .centerCrop()
-                .transition(withCrossFade())
+                .override(width)
                 .into(holder.ivImage);
 
 
@@ -170,6 +173,24 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @Override
     public String getPopupText(int position) {
         return (position + 1) + " of " + store.size();
+    }
+
+    @NonNull
+    @Override
+    public List<ImageObject> getPreloadItems(int position) {
+        return Collections.singletonList(store.getImageObject(position));
+    }
+
+    @Nullable
+    @Override
+    public RequestBuilder<Drawable> getPreloadRequestBuilder(@NonNull ImageObject item) {
+        int width = getCardSize(context);
+        //This needs to be identical (except "into") to the onBind glide builder
+        return Glide
+                .with(context)
+                .load(item.getUri())
+                .centerCrop()
+                .override(width, width);
     }
 
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {

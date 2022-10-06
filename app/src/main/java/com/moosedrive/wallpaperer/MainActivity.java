@@ -1,5 +1,7 @@
 package com.moosedrive.wallpaperer;
 
+import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -8,6 +10,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,6 +18,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -28,6 +32,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -48,6 +53,11 @@ import androidx.work.WorkManager;
 import androidx.work.WorkRequest;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.ListPreloader;
+import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader;
+import com.bumptech.glide.util.FixedPreloadSizeProvider;
+import com.bumptech.glide.util.ViewPreloadSizeProvider;
 import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.material.snackbar.Snackbar;
@@ -58,6 +68,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -219,18 +230,25 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
+        adapter = new RVAdapter(context);
         int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(getResources().getString(R.string.preference_columns), "2"));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
+        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context),RVAdapter.getCardSize(context));
+
         if (width / columns < (int) getResources().getDimension(R.dimen.card_size_min))
             columns = (int) (width / getResources().getDimension(R.dimen.card_size_min));
         rv.setLayoutManager(
                 new GridLayoutManager(context
                         , columns > 0 ? columns : 1));
-        adapter = new RVAdapter(context);
+
         adapter.setHasStableIds(true);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
         new FastScrollerBuilder(rv).useMd2Style().build();
+
+        //Pre-loader loads images into the Glide memory cache while they are still off screen
+        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, 32 /*maxPreload*/);
+        rv.addOnScrollListener(preloader);
     }
 
     private boolean processIncomingIntentsAndExit() {
@@ -699,14 +717,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
-            int columns = Integer.parseInt(sharedPreferences.getString(getResources().getString(R.string.preference_columns), "2"));
-            int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-            if (width / columns < (int) getResources().getDimension(R.dimen.card_size_min))
-                columns = (int) (width / getResources().getDimension(R.dimen.card_size_min));
-            rv.setLayoutManager(
-                    new GridLayoutManager(context
-                            , columns > 0 ? columns : 1));
-
+            setupRecyclerView();
         } else if (key.equals(getResources().getString(R.string.preference_idle))) {
             if (sharedPreferences.getBoolean(key, false)) {
                 scheduleRandomWallpaper(true);
