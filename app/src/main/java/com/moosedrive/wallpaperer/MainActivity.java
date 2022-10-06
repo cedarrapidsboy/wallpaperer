@@ -240,7 +240,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         rv.setItemViewCacheSize(50);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
-        new FastScrollerBuilder(rv).build();
+        new FastScrollerBuilder(rv).useMd2Style().build();
     }
 
     private boolean processIncomingIntentsAndExit() {

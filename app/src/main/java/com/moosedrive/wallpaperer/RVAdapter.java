@@ -36,7 +36,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 
-public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> {
+import me.zhanghai.android.fastscroll.PopupTextProvider;
+
+public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> implements PopupTextProvider {
 
     final ImageStore store;
     final Context context;
@@ -161,6 +163,12 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> {
 
     public ArrayList<ImageObject> getData() {
         return new ArrayList<>(Arrays.asList(store.getImageObjectArray()));
+    }
+
+    @NonNull
+    @Override
+    public String getPopupText(int position) {
+        return Integer.toString(position) + "/" + Integer.toString(store.size());
     }
 
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
