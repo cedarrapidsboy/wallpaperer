@@ -31,7 +31,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.view.MenuItemCompat;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     /**
      * The Coordinator layout.
      */
-    CoordinatorLayout coordinatorLayout;
+    ConstraintLayout constraintLayout;
     boolean isloading = false;
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
@@ -102,6 +102,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private View fab;
     public CountDownLatch loadingDoneSignal;
     public HashSet<String> loadingErrors;
+    private Toolbar tb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,12 +122,12 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         images.updateFromPrefs(context);
 
         //Add the toolbar / actionbar
-        Toolbar tb = findViewById(R.id.toolbar);
+        tb = findViewById(R.id.toolbar);
         setSupportActionBar(tb);
         Objects.requireNonNull(getSupportActionBar()).setDisplayShowTitleEnabled(false);
 
         //Get layout for snackbars (e.g., item removal notification)
-        coordinatorLayout = findViewById(R.id.constraintlayout);
+        constraintLayout = findViewById(R.id.constraintlayout);
 
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
@@ -143,17 +144,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
         //TODO on first run preference
         boolean firstTime = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getString(R.string.first_time), true);
-        fab.setEnabled(false);
-        findViewById(R.id.view_blocker).setOnClickListener(v -> {
-            int i = 0;
-            i++;
-            //do nothing
-        });
-        if (firstTime && images.size() == 0)
+
+        if (firstTime && images.size() == 0) {
             runFirstTimeShowcase();
-        else {
-            findViewById(R.id.view_blocker).setVisibility(View.INVISIBLE);
-            fab.setEnabled(true);
         }
 
 
@@ -213,8 +206,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
                     default:
                         sv.hide();
-                        findViewById(R.id.view_blocker).setVisibility(View.INVISIBLE);
-                        fab.setEnabled(true);
                         SharedPreferences prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(context);
                         SharedPreferences.Editor edit = prefs.edit();
                         edit.putBoolean(getString(R.string.first_time), false);
@@ -336,7 +327,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             if (isChecked && images.size() == 0) {
                 toggler.setChecked(false);
                 Snackbar
-                        .make(coordinatorLayout, getString(R.string.toast_add_an_image_toggle), Snackbar.LENGTH_LONG)
+                        .make(constraintLayout, getString(R.string.toast_add_an_image_toggle), Snackbar.LENGTH_LONG)
                         .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                         .setTextColor(getColor(R.color.white))
                         .show();
@@ -402,7 +393,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                     StatFs stats = new StatFs(fImageStorageFolder.getAbsolutePath());
                     long bytesAvailable = stats.getAvailableBlocksLong() * stats.getBlockSizeLong();
                     if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs())
-                        Snackbar.make(coordinatorLayout, getString(R.string.loading_error_cannot_mkdir), Snackbar.LENGTH_LONG)
+                        Snackbar.make(constraintLayout, getString(R.string.loading_error_cannot_mkdir), Snackbar.LENGTH_LONG)
                                 .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                                 .setTextColor(getColor(R.color.white))
                                 .show();
@@ -528,7 +519,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void setSingleWallpaper(String imgObjectId) {
         if (images.size() == 0) {
-            Snackbar.make(coordinatorLayout, "Please add an image. Nothing to do.", Snackbar.LENGTH_LONG)
+            Snackbar.make(constraintLayout, "Please add an image. Nothing to do.", Snackbar.LENGTH_LONG)
                     .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                     .setTextColor(getColor(R.color.white))
                     .show();
@@ -564,7 +555,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     @SuppressLint("NotifyDataSetChanged")
     public void deleteAll() {
         if (images.size() == 0) {
-            Snackbar.make(coordinatorLayout, R.string.msg_no_images_to_action, Snackbar.LENGTH_LONG)
+            Snackbar.make(constraintLayout, R.string.msg_no_images_to_action, Snackbar.LENGTH_LONG)
                     .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                     .setTextColor(getColor(R.color.white))
                     .show();
@@ -649,7 +640,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
 
                 Snackbar snackbar = Snackbar
-                        .make(coordinatorLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
+                        .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
                 final boolean fToggled = toggled;
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
