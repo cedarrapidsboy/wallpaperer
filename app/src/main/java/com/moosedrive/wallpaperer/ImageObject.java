@@ -32,8 +32,8 @@ public class ImageObject {
     }
 
     public void generateThumbnail(Context context) {
+        isGenerating = true;
         tpe.submit(() -> {
-            isGenerating = true;
             thumbUri = StorageUtils.getThumbnailUri(context, this);
             isGenerating = false;
         });

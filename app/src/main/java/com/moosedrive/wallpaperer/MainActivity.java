@@ -231,12 +231,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
         adapter = new RVAdapter(context);
-        int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(getResources().getString(R.string.preference_columns), "2"));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context),RVAdapter.getCardSize(context));
-
-        if (width / columns < (int) getResources().getDimension(R.dimen.card_size_min))
-            columns = (int) (width / getResources().getDimension(R.dimen.card_size_min));
+        int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
+        int columns = width / RVAdapter.getCardSize(context);
+        int rows = height / RVAdapter.getCardSize(context);
         rv.setLayoutManager(
                 new GridLayoutManager(context
                         , columns > 0 ? columns : 1));
@@ -245,9 +243,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
         new FastScrollerBuilder(rv).useMd2Style().build();
-
+        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context),RVAdapter.getCardSize(context));
         //Pre-loader loads images into the Glide memory cache while they are still off screen
-        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, 32 /*maxPreload*/);
+        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, (columns * rows * 2) /*maxPreload*/);
         rv.addOnScrollListener(preloader);
     }
 
@@ -339,7 +337,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menuactions, menu);
         //Special handling for switch control (onOptionsItemSelected doesn't work)
-        toggler = MenuItemCompat.getActionView(menu.findItem(R.id.app_bar_switch)).findViewById(R.id.switch_control);
+        toggler = menu.findItem(R.id.app_bar_switch).getActionView().findViewById(R.id.switch_control);
         toggler.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked && images.size() == 0) {
                 toggler.setChecked(false);

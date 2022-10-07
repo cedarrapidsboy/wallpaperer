@@ -32,6 +32,8 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.ListPreloader;
 import com.bumptech.glide.Priority;
 import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.RequestOptions;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -97,11 +99,13 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         //noinspection SuspiciousNameCombination
         holder.itemView.getLayoutParams().height = width;
         //Set the thumbnail in a different thread (long running resize operation)
+        RequestBuilder<Drawable> requestBuilder = Glide.with(context).asDrawable().sizeMultiplier(0.05f);
         Glide
                 .with(context)
                 .load(img.getUri())
                 .centerCrop()
                 .override(width)
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                 .into(holder.ivImage);
 
 
@@ -183,14 +187,14 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Nullable
     @Override
-    public RequestBuilder<Drawable> getPreloadRequestBuilder(@NonNull ImageObject item) {
+    public RequestBuilder<Drawable> getPreloadRequestBuilder(@NonNull ImageObject img) {
         int width = getCardSize(context);
         //This needs to be identical (except "into") to the onBind glide builder
-        return Glide
-                .with(context)
-                .load(item.getUri())
+        return Glide.with(context)
+                .load(img.getUri())
                 .centerCrop()
-                .override(width, width);
+                .override(width)
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE);
     }
 
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
