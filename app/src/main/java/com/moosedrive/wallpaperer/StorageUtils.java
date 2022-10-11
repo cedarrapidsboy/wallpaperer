@@ -32,7 +32,7 @@ public class StorageUtils {
         // of these two.
         float xScale = (float) newWidth / sourceWidth;
         float yScale = (float) newHeight / sourceHeight;
-        float scale = (crop)?Math.max(xScale, yScale):Math.min(xScale, yScale);
+        float scale = (crop) ? Math.max(xScale, yScale) : Math.min(xScale, yScale);
 
         // Now get the size of the source bitmap when scaled
         float scaledWidth = scale * sourceWidth;
@@ -115,7 +115,7 @@ public class StorageUtils {
         @SuppressWarnings("ConstantConditions") File thumbnailFile = new File(new File(imgObj.getUri().getPath()).getParentFile().getPath() + File.separator + THUMBDIR + File.separator + imgObj.getId());
         if (!thumbnailFile.exists()) {
             try {
-                Uri newThumbUri = saveThumbnail(context,imgObj.getUri(), imgObj.getId());
+                Uri newThumbUri = saveThumbnail(context, imgObj.getUri(), imgObj.getId());
                 if (newThumbUri != null)
                     thumbnailFile = new File(newThumbUri.getPath());
             } catch (IOException e) {
@@ -284,7 +284,12 @@ public class StorageUtils {
         if (ls != null) {
             for (File f : ls) {
                 if (f.isFile() && img.getName().equals(f.getName())) {
-                    @SuppressWarnings("ConstantConditions") File thumbnail = new File(f.getParentFile().getPath() + File.separator + THUMBDIR + File.separator + img.getId());
+                    @SuppressWarnings("ConstantConditions") File thumbnail = new File(
+                            f.getParentFile().getPath()
+                                    + File.separator
+                                    + THUMBDIR
+                                    + File.separator
+                                    + img.getId());
                     if (thumbnail.exists())
                         thumbnail.delete();
                     f.delete();
