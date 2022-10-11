@@ -1,7 +1,5 @@
 package com.moosedrive.wallpaperer;
 
-import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
-
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -10,7 +8,6 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,7 +15,6 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
-import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -32,12 +28,10 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.view.MenuItemCompat;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -54,10 +48,8 @@ import androidx.work.WorkRequest;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.ListPreloader;
-import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader;
 import com.bumptech.glide.util.FixedPreloadSizeProvider;
-import com.bumptech.glide.util.ViewPreloadSizeProvider;
 import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.material.snackbar.Snackbar;
@@ -68,7 +60,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -110,10 +101,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private Context context;
     private SwitchMaterial toggler;
     private ThreadPoolExecutor executor;
-    private View fab;
     public CountDownLatch loadingDoneSignal;
     public HashSet<String> loadingErrors;
-    private Toolbar tb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         images.updateFromPrefs(context);
 
         //Add the toolbar / actionbar
-        tb = findViewById(R.id.toolbar);
+        Toolbar tb = findViewById(R.id.toolbar);
         setSupportActionBar(tb);
         Objects.requireNonNull(getSupportActionBar()).setDisplayShowTitleEnabled(false);
 
@@ -150,7 +139,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                         this.getBaseContext()));
 
         //Set onclick listener for the add image(s) button
-        fab = findViewById(R.id.floatingActionButton);
+        View fab = findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(v -> openImageChooser());
 
         //TODO on first run preference
@@ -349,13 +338,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 processToggle(false);
             } else {
                 processToggle(isChecked);
-                /*PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                String packageName = context.getPackageName();
-                Intent intent = new Intent();
-                if (!pm.isIgnoringBatteryOptimizations(context.getPackageName())) {
-                    intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                    context.startActivity(intent);
-                }*/
             }
         });
         //Start changing the wallpaper

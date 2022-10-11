@@ -20,7 +20,7 @@ public class ImageObject {
     private final String type;
     private final Date date;
     private boolean isGenerating;
-    private static ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
+    private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
 
     public Uri getThumbUri(Context context) {
         if (thumbUri == null) {
