@@ -112,7 +112,7 @@ public class StorageUtils {
     }
 
     public static Uri getThumbnailUri(Context context, ImageObject imgObj) {
-        File thumbnailFile = new File(new File(imgObj.getUri().getPath()).getParentFile().getPath() + File.separator + THUMBDIR + File.separator + imgObj.getId());
+        @SuppressWarnings("ConstantConditions") File thumbnailFile = new File(new File(imgObj.getUri().getPath()).getParentFile().getPath() + File.separator + THUMBDIR + File.separator + imgObj.getId());
         if (!thumbnailFile.exists()) {
             try {
                 Uri newThumbUri = saveThumbnail(context,imgObj.getUri(), imgObj.getId());
@@ -277,13 +277,14 @@ public class StorageUtils {
         return result;
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void cleanUpImage(String destinationDir, ImageObject img) {
         File destDir = new File(destinationDir);
         File[] ls = destDir.listFiles();
         if (ls != null) {
             for (File f : ls) {
                 if (f.isFile() && img.getName().equals(f.getName())) {
-                    File thumbnail = new File(f.getParentFile().getPath() + File.separator + THUMBDIR + File.separator + img.getId());
+                    @SuppressWarnings("ConstantConditions") File thumbnail = new File(f.getParentFile().getPath() + File.separator + THUMBDIR + File.separator + img.getId());
                     if (thumbnail.exists())
                         thumbnail.delete();
                     f.delete();

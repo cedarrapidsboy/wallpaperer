@@ -67,6 +67,7 @@ public class SettingsActivity extends AppCompatActivity {
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public void onDisplayPreferenceDialog(@NonNull Preference preference) {
             DialogFragment dialogFragment = null;
@@ -79,7 +80,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             if (dialogFragment != null) {
                 dialogFragment.setTargetFragment(this, 0);
-                dialogFragment.show(this.getFragmentManager(), "TIME_PICKER_FRAGMENT");
+                dialogFragment.show(getParentFragmentManager(), "TIME_PICKER_FRAGMENT");
             } else {
                 super.onDisplayPreferenceDialog(preference);
             }
