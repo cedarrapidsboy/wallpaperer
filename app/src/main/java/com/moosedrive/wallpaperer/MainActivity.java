@@ -127,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         Objects.requireNonNull(getSupportActionBar()).setDisplayShowTitleEnabled(false);
 
         //Get layout for snackbars (e.g., item removal notification)
-        constraintLayout = findViewById(R.id.constraintlayout);
+        constraintLayout = findViewById(R.id.constraint_layout);
 
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
@@ -383,7 +383,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         if (sources.size() > 0) {
             isloading = true;
             loadingDoneSignal = new CountDownLatch(sources.size());
-            loadingDialog.startLoadingdialog(sources.size());
+            loadingDialog.startLoadingDialog(sources.size());
             for (Uri uri : sources) {
                 Thread t = new Thread(() -> {
                     File fImageStorageFolder = StorageUtils.getStorageFolder(getBaseContext());
@@ -449,7 +449,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                     e.printStackTrace();
                 } finally {
                     isloading = false;
-                    loadingDialog.dismissdialog();
+                    loadingDialog.dismissDialog();
                 }
             });
         }

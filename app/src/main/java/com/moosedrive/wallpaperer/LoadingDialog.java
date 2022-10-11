@@ -21,7 +21,7 @@ public class LoadingDialog {
     }
 
 
-    void startLoadingdialog(int max) {
+    void startLoadingDialog(int max) {
 
         // adding ALERT Dialog builder object and passing activity as parameter
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
@@ -48,7 +48,7 @@ public class LoadingDialog {
     }
 
     // dismiss method
-    void dismissdialog() {
+    void dismissDialog() {
         dialog.dismiss();
     }
 

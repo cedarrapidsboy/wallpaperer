@@ -22,6 +22,7 @@ public class ImageObject {
     private boolean isGenerating;
     private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
 
+    @SuppressWarnings("unused")
     public Uri getThumbUri(Context context) {
         if (thumbUri == null) {
             if (!isGenerating)
