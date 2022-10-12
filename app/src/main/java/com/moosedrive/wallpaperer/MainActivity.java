@@ -107,19 +107,17 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        context = this;
+        images = ImageStore.getInstance();
+        images.updateFromPrefs(context);
 
         int procs = (Runtime.getRuntime().availableProcessors() < 2)
                 ? 1
                 : Runtime.getRuntime().availableProcessors() - 1;
         executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(procs);
 
-        context = this;
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
-
-        //Initialize the images object (loads from saved prefs)
-        images = ImageStore.getInstance();
-        images.updateFromPrefs(context);
 
         //Add the toolbar / actionbar
         Toolbar tb = findViewById(R.id.toolbar);
@@ -142,20 +140,18 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         View fab = findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(v -> openImageChooser());
 
-        //TODO on first run preference
-        boolean firstTime = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getString(R.string.first_time), true);
-
-        if (firstTime && images.size() == 0) {
-            runFirstTimeShowcase();
-        }
-
-
         //Create swipe action for items
         enableSwipeToDeleteAndUndo();
 
         //Check if someone is sharing some images with this app
         if (!processIncomingIntentsAndExit())
             PreferenceManager.getDefaultSharedPreferences(context).registerOnSharedPreferenceChangeListener(this);
+
+        boolean firstTime = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getString(R.string.first_time), true);
+
+        if (firstTime && images.size() == 0) {
+            runFirstTimeShowcase();
+        }
     }
 
     private void runFirstTimeShowcase() {
@@ -309,19 +305,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        images = ImageStore.getInstance();
-        images.updateFromPrefs(context);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        images.saveToPrefs(context);
-    }
-
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menuactions, menu);
@@ -419,10 +402,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                                     try {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date(last));
                                         img.generateThumbnail(context);
-                                        activity.runOnUiThread(() -> {
-                                            adapter.addItem(img);
-                                            adapter.saveToPrefs();
-                                        });
+                                        activity.runOnUiThread(() -> adapter.addItem(img));
+                                        adapter.saveToPrefs();
                                     } catch (NoSuchAlgorithmException | IOException e) {
                                         e.printStackTrace();
                                     }
@@ -449,6 +430,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                     e.printStackTrace();
                 } finally {
                     isloading = false;
+                    activity.runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
                     loadingDialog.dismissDialog();
                 }
             });
