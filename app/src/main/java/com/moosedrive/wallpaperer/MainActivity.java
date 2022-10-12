@@ -1,7 +1,6 @@
 package com.moosedrive.wallpaperer;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,8 +9,6 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
@@ -74,12 +71,12 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
 /**
  * The type Main activity.
- * <p>
- * TODO Add a delete all function -- swiping a lot of images is tiring
  */
 public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     public static final int MINIMUM_REQUIRED_FREE_SPACE = 734003200;
+    public CountDownLatch loadingDoneSignal;
+    public HashSet<String> loadingErrors;
     /**
      * The Rv.
      */
@@ -101,8 +98,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private Context context;
     private SwitchMaterial toggler;
     private ThreadPoolExecutor executor;
-    public CountDownLatch loadingDoneSignal;
-    public HashSet<String> loadingErrors;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,11 +137,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
         //Create swipe action for items
         enableSwipeToDeleteAndUndo();
-
-        //Check if someone is sharing some images with this app
-        if (!processIncomingIntentsAndExit())
-            PreferenceManager.getDefaultSharedPreferences(context).registerOnSharedPreferenceChangeListener(this);
-
+        PreferenceManager.getDefaultSharedPreferences(context).registerOnSharedPreferenceChangeListener(this);
         boolean firstTime = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getString(R.string.first_time), true);
 
         if (firstTime && images.size() == 0) {
@@ -228,81 +219,12 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
         new FastScrollerBuilder(rv).useMd2Style().build();
-        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context),RVAdapter.getCardSize(context));
+        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
         //Pre-loader loads images into the Glide memory cache while they are still off screen
         RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, (columns * rows * 2) /*maxPreload*/);
         rv.addOnScrollListener(preloader);
     }
 
-    private boolean processIncomingIntentsAndExit() {
-        // Get intent, action and MIME type
-        Intent intent = getIntent();
-        String action = intent.getAction();
-        String type = intent.getType();
-        boolean exiting = false;
-        //Intents can affect previous activities in history. Not easy to reset an intent. So, detect a history launch instead.
-        boolean launchedFromHistory = (getIntent().getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY;
-        if (!launchedFromHistory && type != null && (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action))) {
-            HashSet<Uri> setUris = new HashSet<>();
-            if (intent.getClipData() != null) {
-                for (int i = 0; i < intent.getClipData().getItemCount(); i++) {
-                    setUris.add(intent.getClipData().getItemAt(i).getUri());
-                }
-            } else if (intent.getData() != null)
-                setUris.add(intent.getData());
-            if (setUris.size() > 0) {
-                new AlertDialog.Builder(context)
-                        .setTitle(getString(R.string.dialog_title_add_intent))
-                        .setMessage(getString(R.string.dialog_msg_add_intent_message))
-                        .setCancelable(false)
-                        .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
-                            dialog.dismiss();
-                            setResult(Activity.RESULT_CANCELED);
-                            finishAfterTransition();
-                        })
-                        .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
-                            dialog.dismiss();
-                            addWallpapers(setUris);
-                            setResult(Activity.RESULT_OK);
-                            executor.execute(() -> {
-                                if (loadingDoneSignal != null) {
-                                    try {
-                                        loadingDoneSignal.await();
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    } finally {
-                                        dialog.dismiss();
-                                        if (loadingErrors != null && loadingErrors.size() > 0) {
-                                            StringBuilder sb = new StringBuilder();
-                                            for (String str : loadingErrors) {
-                                                sb.append(str);
-                                                sb.append(System.getProperty("line.separator"));
-                                            }
-                                            new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(context)
-                                                    .setTitle("Error(s) loading images")
-                                                    .setMessage(sb.toString())
-                                                    .setPositiveButton("Got it", (dialog2, which2) -> {
-                                                        dialog2.dismiss();
-                                                        finishAfterTransition();
-                                                    })
-                                                    .show());
-                                        } else {
-                                            finishAfterTransition();
-                                        }
-                                    }
-                                }
-                            });
-                        })
-                        .show();
-            } else {
-                setResult(Activity.RESULT_CANCELED);
-                finishAfterTransition();
-            }
-            exiting = true;
-        }
-
-        return exiting;
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -688,8 +610,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             scheduleRandomWallpaper(true);
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
             runOnUiThread(() -> adapter.notifyDataSetChanged());
-        else if (!isloading && key.equals("sources"))
+        else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
+            //runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
+        }
     }
 
     @Override
