@@ -77,34 +77,23 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     public static final int MINIMUM_REQUIRED_FREE_SPACE = 734003200;
     public CountDownLatch loadingDoneSignal;
     public HashSet<String> loadingErrors;
-    /**
-     * The Rv.
-     */
     RecyclerView rv;
-    /**
-     * The Images.
-     */
     ImageStore images;
-    /**
-     * The Adapter.
-     */
     RVAdapter adapter;
-    /**
-     * The Coordinator layout.
-     */
     ConstraintLayout constraintLayout;
     boolean isloading = false;
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
     private SwitchMaterial toggler;
     private ThreadPoolExecutor executor;
-
+    private int lastRecordedSize;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = this;
         images = ImageStore.getInstance();
         images.updateFromPrefs(context);
+        lastRecordedSize = images.size();
 
         int procs = (Runtime.getRuntime().availableProcessors() < 2)
                 ? 1
@@ -612,7 +601,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
-            //runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
+            // Scroll to the newly added images, but don't scroll on delete
+            if (images.size() > lastRecordedSize)
+                runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
+            lastRecordedSize = images.size();
         }
     }
 
