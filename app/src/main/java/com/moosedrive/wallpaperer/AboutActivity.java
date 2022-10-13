@@ -30,6 +30,9 @@ public class AboutActivity extends AppCompatActivity {
         if (storageIntent.resolveActivity(getPackageManager()) != null)
             storageElement.setIntent(storageIntent);
 
+        Element licenseElement = new Element();
+        licenseElement.setTitle(getString(R.string.about_licenses));
+
         View aboutPage = new AboutPage(this)
                 .isRTL(false)
                 .setDescription(getString(R.string.about_app_description))
@@ -39,6 +42,8 @@ public class AboutActivity extends AppCompatActivity {
                 .addItem(storageElement)
                 .addGroup(getString(R.string.about_social_title))
                 .addGitHub(getString(R.string.about_github_user))
+                .addGroup("Licenses")
+                .addItem(licenseElement)
                 .create();
 
         setContentView(aboutPage);
