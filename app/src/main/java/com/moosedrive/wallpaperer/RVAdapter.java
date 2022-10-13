@@ -98,10 +98,9 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         Glide
                 .with(context)
                 .load(img.getUri())
-                .thumbnail(Glide.with(context).load(img.getThumbUri(context)))
                 .centerCrop()
                 .override(width)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                 .into(holder.ivImage);
 
 
@@ -188,10 +187,9 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         //This needs to be identical (except "into") to the onBind glide builder
         return Glide.with(context)
                 .load(img.getUri())
-                .thumbnail(Glide.with(context).load(img.getThumbUri(context)))
                 .centerCrop()
                 .override(width)
-                .diskCacheStrategy(DiskCacheStrategy.ALL);
+                .diskCacheStrategy(DiskCacheStrategy.RESOURCE);
     }
 
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {

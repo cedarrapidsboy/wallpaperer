@@ -364,13 +364,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     public void scheduleRandomWallpaper(boolean replace) {
         ExistingPeriodicWorkPolicy policy = (replace) ? ExistingPeriodicWorkPolicy.REPLACE : ExistingPeriodicWorkPolicy.KEEP;
         boolean bReqIdle = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getResources().getString(R.string.preference_idle), false);
-        String delay = PreferenceManager.getDefaultSharedPreferences(context).getString(getString(R.string.preference_time_delay), "00:15");
-        int hours = Integer.parseInt(delay.split(":")[0]);
-        int minutes = Integer.parseInt(delay.split(":")[1]);
-        minutes = Math.max(hours * 60 + minutes, 15);
         PeriodicWorkRequest saveRequest = new PeriodicWorkRequest
-                .Builder(WallpaperWorker.class, minutes, TimeUnit.MINUTES)
-                .setInitialDelay(minutes, TimeUnit.MINUTES)
+                .Builder(WallpaperWorker.class, 15, TimeUnit.MINUTES)
+                .setInitialDelay(15, TimeUnit.MINUTES)
                 .setConstraints(new Constraints.Builder()
                         .setRequiresDeviceIdle(bReqIdle)
                         .setRequiresBatteryNotLow(true)
@@ -433,6 +429,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 if (imgObjectId != null) {
                     data.putString("id", imgObjectId);
                 }
+                data.putBoolean("immediate", true);
                 nowRequest = new OneTimeWorkRequest
                         .Builder(WallpaperWorker.class)
                         .setInputData(data.build())
@@ -441,6 +438,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 Toast.makeText(context,
                         getResources().getText(R.string.toast_wallpaper_changing),
                         Toast.LENGTH_SHORT).show();
+                // reset the periodic wallpaper changer
+                if (toggler.isChecked())
+                    scheduleRandomWallpaper(true);
             }
         }
     }
