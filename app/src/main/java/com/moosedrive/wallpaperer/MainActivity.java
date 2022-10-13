@@ -27,6 +27,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.preference.PreferenceManager;
@@ -91,6 +92,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = this;
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         images = ImageStore.getInstance();
         images.updateFromPrefs(context);
         lastRecordedSize = images.size();
@@ -241,12 +243,17 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        Intent intent;
         switch (item.getItemId()) {
             case (R.id.remove_all):
                 deleteAll();
                 return true;
             case (R.id.menu_settings):
-                Intent intent = new Intent(this, SettingsActivity.class);
+                intent = new Intent(this, SettingsActivity.class);
+                startActivity(intent);
+                return true;
+            case (R.id.menu_about):
+                intent = new Intent(this, AboutActivity.class);
                 startActivity(intent);
                 return true;
             case (R.id.next_wallpaper):

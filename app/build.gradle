@@ -3,14 +3,6 @@ plugins {
 }
 
 android {
-    signingConfigs {
-        'default' {
-            storeFile file('C:\\Users\\Chad\\Documents\\moosedirve_keystore.jks')
-            storePassword 'testing'
-            keyAlias 'test'
-            keyPassword 'testing'
-        }
-    }
     compileSdk 32
 
     defaultConfig {
@@ -79,4 +71,6 @@ dependencies {
     implementation 'me.zhanghai.android.fastscroll:library:1.1.8'
 
     implementation 'com.github.bumptech.glide:recyclerview-integration:4.11.0'
+
+    implementation 'io.github.medyo:android-about-page:2.0.0'
 }

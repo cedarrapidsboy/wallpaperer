@@ -71,5 +71,13 @@
     <string name="delay_dialog_title">Set delay (hh:mm)</string>
     <string name="preference_image_crop">preference_image_crop</string>
     <string name="preference_image_crop_title">Crop Image to Fill Screen</string>
+    <string name="settings">Settings</string>
+    <string name="about">About</string>
+    <string name="about_social_title">Find this app</string>
+    <string name="about_github_user">cedarrapidsboy</string>
+    <string name="app_simple_name">Wallpaperer</string>
+    <string name="about_storage_title">Wallpaper Storage Allowance</string>
+    <string name="about_app_description">Automatically change your home screen wallpaper on a predefined interval.</string>
+    <string name="about_storage_details">{0} of {1} GiB available</string>
 
 </resources>

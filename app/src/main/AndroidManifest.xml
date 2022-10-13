@@ -18,6 +18,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Wallpaperer">
         <activity
+            android:name=".AboutActivity"
+            android:exported="false" />
+        <activity
             android:name=".IncomingIntentActivity"
             android:exported="true">
             <intent-filter>
@@ -34,8 +37,7 @@
 
                 <data android:mimeType="image/*" />
             </intent-filter>
-        </activity>
-        <!-- launcher icon paint roller by khushmeen icons -->
+        </activity> <!-- launcher icon paint roller by khushmeen icons -->
         <activity
             android:name=".SettingsActivity"
             android:exported="true"
@@ -49,7 +51,6 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
         <provider
