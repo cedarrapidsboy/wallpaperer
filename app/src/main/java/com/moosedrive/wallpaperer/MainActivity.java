@@ -138,7 +138,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             runFirstTimeShowcase();
         }
 
-        timerArc = (TimerArc) findViewById(R.id.timerArc);
+        timerArc = findViewById(R.id.timerArc);
         if (isScheduleActive())
             timerArc.start();
     }
@@ -370,29 +370,36 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void scheduleRandomWallpaper(boolean replace) {
         ExistingPeriodicWorkPolicy policy = (replace) ? ExistingPeriodicWorkPolicy.REPLACE : ExistingPeriodicWorkPolicy.KEEP;
-        if (replace) {
-            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
-            long now = new Date().getTime();
-            prefEdit.putLong("worker_last_change", now);
-            prefEdit.apply();
-        }
-        boolean bReqIdle = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getResources().getString(R.string.preference_idle), false);
+
+        boolean bReqIdle = PreferenceHelper.idleOnly(context);
         PeriodicWorkRequest.Builder requestBuilder = new PeriodicWorkRequest
-                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context), TimeUnit.MILLISECONDS)
-                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context), TimeUnit.MILLISECONDS)
+                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context)/1000/60, TimeUnit.MINUTES)
+                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context)/1000/60, TimeUnit.MINUTES)
                 .setConstraints(new Constraints.Builder()
                         .setRequiresDeviceIdle(bReqIdle)
                         .setRequiresBatteryNotLow(true)
                         .build());
-        if (!PreferenceHelper.idleOnly(context))
+        if (!bReqIdle)
             requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         PeriodicWorkRequest saveRequest = requestBuilder.build();
         WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(getString(R.string.work_random_wallpaper_id)
                         , policy
                         , saveRequest);
+        if (replace) {
+            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+            long now = new Date().getTime();
+            prefEdit.putLong(getString(R.string.preference_worker_last_queue), now);
+            prefEdit.apply();
+        }
         if (isScheduleActive())
             timerArc.start();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        int i = 0;
     }
 
     /**
@@ -624,7 +631,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             scheduleRandomWallpaper(true);
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
             runOnUiThread(() -> adapter.notifyDataSetChanged());
-        else if (key.equals("worker_last_change")) {
+        else if (key.equals(getString(R.string.preference_worker_last_queue))) {
             if (isScheduleActive())
                 timerArc.start();
         }

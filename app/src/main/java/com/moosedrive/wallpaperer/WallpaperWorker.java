@@ -103,7 +103,7 @@ public class WallpaperWorker extends Worker {
         }
         SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
         long now = new Date().getTime();
-        prefEdit.putLong("worker_last_change", now);
+        prefEdit.putLong(context.getString(R.string.preference_worker_last_queue), now);
         prefEdit.apply();
 
         return Result.success();

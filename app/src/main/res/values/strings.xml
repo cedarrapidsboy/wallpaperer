@@ -80,5 +80,6 @@
     <string name="about_app_description">Automatically change your home screen wallpaper on a predefined interval.</string>
     <string name="about_storage_details">{0} of {1} GiB available</string>
     <string name="about_licenses" tools:ignore="TypographyDashes">medyo/android-about-page © 2016 Mehdi Sakout The MIT License (MIT) – bumptech/glide BSD, part MIT and Apache 2.0 licenses – zhanghai/AndroidFastScroll © 2019 Google LLC Apache 2.0 License – amlcurran/ShowcaseView © 2012-2014 Alex Curran Apache 2.0 License – stfalcon-studio/StfalconImageViewer © 2018 stfalcon.com Apache 2.0 License</string>
+    <string name="preference_worker_last_queue">worker_last_change</string>
 
 </resources>

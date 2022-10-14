@@ -99,14 +99,14 @@ public class TimerArc extends View {
         stop();
         long now = new Date().getTime();
         mTimerAnimator = ValueAnimator.ofFloat(0f, 1f);
-        long diffMs = PreferenceHelper.getScheduledWallpaperChange(getContext()) - now;
-        mTimerAnimator.setDuration((diffMs > 0)? diffMs :0);
+        long timeToGo = PreferenceHelper.getScheduledWallpaperChange(getContext()) - now;
+        mTimerAnimator.setDuration((timeToGo > 0)? timeToGo :0);
         mTimerAnimator.setInterpolator(new LinearInterpolator());
         mTimerAnimator.addUpdateListener(animation -> {
             long now1 = new Date().getTime();
-            long diffMs1 = (PreferenceHelper.getScheduledWallpaperChange(getContext()) - now1);
+            long timeToGoLocal = (PreferenceHelper.getScheduledWallpaperChange(getContext()) - now1);
             long wallpaperDelay = PreferenceHelper.getWallpaperDelay(getContext());
-            drawProgress((diffMs1 <= wallpaperDelay && diffMs1 >= 0)? diffMs1 / (float) wallpaperDelay * 360:0);
+            drawProgress((timeToGoLocal <= wallpaperDelay && timeToGoLocal >= 0)? timeToGoLocal / (float) wallpaperDelay * 360:0);
         });
         mTimerAnimator.start();
     }

@@ -5,8 +5,6 @@ import android.content.SharedPreferences;
 
 import androidx.preference.PreferenceManager;
 
-import java.util.Date;
-
 public class PreferenceHelper {
     private static SharedPreferences sharedPreferences = null;
 
@@ -17,7 +15,7 @@ public class PreferenceHelper {
 
     public static long getLastWallpaperChange(Context context){
         init(context);
-        return sharedPreferences.getLong("worker_last_change", 0);
+        return sharedPreferences.getLong(context.getString(R.string.preference_worker_last_queue), 0);
     }
 
     public static long getWallpaperDelay(Context context){
