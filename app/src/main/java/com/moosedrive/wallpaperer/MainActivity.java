@@ -88,6 +88,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private SwitchMaterial toggler;
     private ThreadPoolExecutor executor;
     private int lastRecordedSize;
+
+    private TimerArc timerArc;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -134,6 +137,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         if (firstTime && images.size() == 0) {
             runFirstTimeShowcase();
         }
+
+        timerArc = (TimerArc) findViewById(R.id.timerArc);
+        timerArc.start();
     }
 
     private void runFirstTimeShowcase() {
@@ -377,7 +383,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 .enqueueUniquePeriodicWork(getString(R.string.work_random_wallpaper_id)
                         , policy
                         , saveRequest);
-
     }
 
     /**
@@ -439,7 +444,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                         getResources().getText(R.string.toast_wallpaper_changing),
                         Toast.LENGTH_SHORT).show();
                 // reset the periodic wallpaper changer
-                if (toggler.isChecked())
+                if (isScheduleActive())
                     scheduleRandomWallpaper(true);
             }
         }
@@ -477,7 +482,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      * Initialize wallpaper toggle.
      */
     public void initializeWallpaperToggle() {
-        if (isActive() && !toggler.isChecked()) {
+        if (isScheduleActive() && !toggler.isChecked()) {
             toggler.setChecked(true);
         } else if (toggler.isChecked()) {
             toggler.setChecked(false);
@@ -492,6 +497,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     public void processToggle(boolean isChecked) {
         if (isChecked) {
             scheduleRandomWallpaper(false);
+
             Toast.makeText(context,
                     getString(R.string.toast_changer_active),
                     Toast.LENGTH_SHORT).show();
@@ -569,7 +575,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         itemTouchhelper.attachToRecyclerView(rv);
     }
 
-    private boolean isActive() {
+    private boolean isScheduleActive() {
         return isWorkScheduled(context);
 
     }
@@ -606,6 +612,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             scheduleRandomWallpaper(true);
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
             runOnUiThread(() -> adapter.notifyDataSetChanged());
+        else if (key.equals("worker_last_change")) {
+            timerArc.start();
+        }
         else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
             // Scroll to the newly added images, but don't scroll on delete

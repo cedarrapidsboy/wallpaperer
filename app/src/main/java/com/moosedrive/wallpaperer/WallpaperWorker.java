@@ -25,7 +25,7 @@ public class WallpaperWorker extends Worker {
     private final Context context;
     private ImageObject imgObject;
     private final ImageStore store;
-    private boolean immediate;
+    private final boolean immediate;
 
 
     public WallpaperWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {

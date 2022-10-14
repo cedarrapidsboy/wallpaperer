@@ -56,5 +56,19 @@
         app:shapeAppearanceOverlay="@style/Theme.AppCompat.Light"
         tools:ignore="TouchTargetSizeCheck,ImageContrastCheck" />
 
+    <com.moosedrive.wallpaperer.TimerArc
+        android:id="@+id/timerArc"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="@dimen/_minus2sdp"
+        android:layout_marginTop="@dimen/_minus2sdp"
+        android:layout_marginEnd="@dimen/_minus2sdp"
+        android:layout_marginBottom="@dimen/_minus2sdp"
+        app:layout_constraintBottom_toBottomOf="@+id/floatingActionButton"
+        app:layout_constraintEnd_toEndOf="@+id/floatingActionButton"
+        app:layout_constraintStart_toStartOf="@+id/floatingActionButton"
+        app:layout_constraintTop_toTopOf="@+id/floatingActionButton"
+        app:ringColor="@color/white"/>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

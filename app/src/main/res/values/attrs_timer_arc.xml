@@ -1,0 +1,5 @@
+<resources>
+    <declare-styleable name="TimerArc">
+        <attr name="ringColor" format="color" />
+    </declare-styleable>
+</resources>
