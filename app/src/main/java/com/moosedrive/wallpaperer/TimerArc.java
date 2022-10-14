@@ -20,16 +20,12 @@ public class TimerArc extends View {
     private static final int ARC_START_ANGLE = 270; // 12 o'clock
 
     private static final float THICKNESS_SCALE = 0.5f;
-
-    private Bitmap mBitmap;
-    private Canvas mCanvas;
-
-    private RectF mCircleOuterBounds;
-    private RectF mCircleInnerBounds;
-
     private final Paint mCirclePaint;
     private final Paint mEraserPaint;
-
+    private Bitmap mBitmap;
+    private Canvas mCanvas;
+    private RectF mCircleOuterBounds;
+    private RectF mCircleInnerBounds;
     private float mCircleSweepAngle;
 
     private ValueAnimator mTimerAnimator;
@@ -100,13 +96,13 @@ public class TimerArc extends View {
         long now = new Date().getTime();
         mTimerAnimator = ValueAnimator.ofFloat(0f, 1f);
         long timeToGo = PreferenceHelper.getScheduledWallpaperChange(getContext()) - now;
-        mTimerAnimator.setDuration((timeToGo > 0)? timeToGo :0);
+        mTimerAnimator.setDuration((timeToGo > 0) ? timeToGo : 0);
         mTimerAnimator.setInterpolator(new LinearInterpolator());
         mTimerAnimator.addUpdateListener(animation -> {
             long now1 = new Date().getTime();
             long timeToGoLocal = (PreferenceHelper.getScheduledWallpaperChange(getContext()) - now1);
             long wallpaperDelay = PreferenceHelper.getWallpaperDelay(getContext());
-            drawProgress((timeToGoLocal <= wallpaperDelay && timeToGoLocal >= 0)? timeToGoLocal / (float) wallpaperDelay * 360:0);
+            drawProgress((timeToGoLocal <= wallpaperDelay && timeToGoLocal >= 0) ? timeToGoLocal / (float) wallpaperDelay * 360 : 0);
         });
         mTimerAnimator.start();
     }

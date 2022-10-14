@@ -41,8 +41,8 @@ public class LoadingDialog {
         dialog.show();
     }
 
-    public void incrementProgressBy(int num){
-        if (pb != null){
+    public void incrementProgressBy(int num) {
+        if (pb != null) {
             pb.incrementProgressBy(num);
         }
     }

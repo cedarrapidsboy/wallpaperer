@@ -1,11 +1,11 @@
 package com.moosedrive.wallpaperer;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.text.MessageFormat;
 import java.util.Locale;
@@ -25,7 +25,7 @@ public class AboutActivity extends AppCompatActivity {
         String pattern = getString(R.string.about_storage_details);
         MessageFormat formatter = new MessageFormat(pattern, Locale.US);
 
-        storageElement.setTitle(formatter.format(new Object[] {freeSpace, totalSpace}));
+        storageElement.setTitle(formatter.format(new Object[]{freeSpace, totalSpace}));
         Intent storageIntent = new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
         if (storageIntent.resolveActivity(getPackageManager()) != null)
             storageElement.setIntent(storageIntent);

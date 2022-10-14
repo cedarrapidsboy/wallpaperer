@@ -146,7 +146,7 @@ public class ImageStore {
     }
 
     public ImageObject getImageObjectByName(String name) {
-        for (ImageObject img : images.values()){
+        for (ImageObject img : images.values()) {
             if (img.getName().equals(name))
                 return img;
         }

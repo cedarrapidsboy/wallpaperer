@@ -13,6 +13,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  * The type Image object.
  */
 public class ImageObject {
+    private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
     private final String id;
     private final String name;
     private final Uri uri;
@@ -20,27 +21,8 @@ public class ImageObject {
     private final String type;
     private final Date date;
     private boolean isGenerating;
-    private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
-
-    @SuppressWarnings("unused")
-    public Uri getThumbUri(Context context) {
-        if (thumbUri == null) {
-            if (!isGenerating)
-                generateThumbnail(context);
-            return uri;
-        }
-        return thumbUri;
-    }
-
-    public void generateThumbnail(Context context) {
-        isGenerating = true;
-        tpe.submit(() -> {
-            thumbUri = StorageUtils.getThumbnailUri(context, this);
-            isGenerating = false;
-        });
-    }
-
     private Uri thumbUri;
+
     /**
      * Instantiates a new Image object.
      *
@@ -61,6 +43,24 @@ public class ImageObject {
         this.date = date;
         this.thumbUri = null;
         this.isGenerating = false;
+    }
+
+    @SuppressWarnings("unused")
+    public Uri getThumbUri(Context context) {
+        if (thumbUri == null) {
+            if (!isGenerating)
+                generateThumbnail(context);
+            return uri;
+        }
+        return thumbUri;
+    }
+
+    public void generateThumbnail(Context context) {
+        isGenerating = true;
+        tpe.submit(() -> {
+            thumbUri = StorageUtils.getThumbnailUri(context, this);
+            isGenerating = false;
+        });
     }
 
     /**

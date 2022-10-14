@@ -1,10 +1,5 @@
 package com.moosedrive.wallpaperer;
 
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.preference.PreferenceManager;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
@@ -13,6 +8,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.preference.PreferenceManager;
 
 import com.google.android.material.snackbar.Snackbar;
 
@@ -28,6 +28,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
 public class IncomingIntentActivity extends AppCompatActivity {
+
+    public CountDownLatch loadingDoneSignal;
+    public HashSet<String> loadingErrors;
+    private ThreadPoolExecutor executor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,9 +109,7 @@ public class IncomingIntentActivity extends AppCompatActivity {
             }
         }
     }
-    private ThreadPoolExecutor executor;
-    public CountDownLatch loadingDoneSignal;
-    public HashSet<String> loadingErrors;
+
     /**
      * Add wallpapers from list of URI's.
      * Loading dialog is displayed and progress bar updated as wallpapers are added.
@@ -129,13 +131,13 @@ public class IncomingIntentActivity extends AppCompatActivity {
                     File fImageStorageFolder = StorageUtils.getStorageFolder(getBaseContext());
                     StatFs stats = new StatFs(fImageStorageFolder.getAbsolutePath());
                     long bytesAvailable = stats.getAvailableBlocksLong() * stats.getBlockSizeLong();
-                    if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs()){
+                    if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs()) {
                         ConstraintLayout constraintLayout = findViewById(R.id.intent_layout);
                         Snackbar.make(constraintLayout, getString(R.string.loading_error_cannot_mkdir), Snackbar.LENGTH_LONG)
                                 .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                                 .setTextColor(getColor(R.color.white))
-                                .show();}
-                    else if (bytesAvailable < MainActivity.MINIMUM_REQUIRED_FREE_SPACE)
+                                .show();
+                    } else if (bytesAvailable < MainActivity.MINIMUM_REQUIRED_FREE_SPACE)
                         loadingErrors.add(getString(R.string.loading_error_precheck_low_space));
                     else {
                         String hash = StorageUtils.getHash(this, uri);

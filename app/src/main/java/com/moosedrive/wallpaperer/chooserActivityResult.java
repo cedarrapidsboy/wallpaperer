@@ -52,17 +52,17 @@ public class chooserActivityResult implements ActivityResultCallback<ActivityRes
                             e.printStackTrace();
                         } finally {
                             if (parentActivity.loadingErrors != null && parentActivity.loadingErrors.size() > 0) {
-                                    StringBuilder sb = new StringBuilder();
-                                    for (String str : parentActivity.loadingErrors) {
-                                        sb.append(str);
-                                        sb.append(System.getProperty("line.separator"));
-                                    }
-                                    new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(parentActivity)
-                                            .setTitle("Error(s) loading images")
-                                            .setMessage(sb.toString())
-                                            .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
-                                            .show());
+                                StringBuilder sb = new StringBuilder();
+                                for (String str : parentActivity.loadingErrors) {
+                                    sb.append(str);
+                                    sb.append(System.getProperty("line.separator"));
                                 }
+                                new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(parentActivity)
+                                        .setTitle("Error(s) loading images")
+                                        .setMessage(sb.toString())
+                                        .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
+                                        .show());
+                            }
                         }
                     }
                 }).start();

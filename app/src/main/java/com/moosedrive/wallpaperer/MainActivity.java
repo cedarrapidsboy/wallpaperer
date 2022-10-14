@@ -373,8 +373,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
         boolean bReqIdle = PreferenceHelper.idleOnly(context);
         PeriodicWorkRequest.Builder requestBuilder = new PeriodicWorkRequest
-                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context)/1000/60, TimeUnit.MINUTES)
-                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context)/1000/60, TimeUnit.MINUTES)
+                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context) / 1000 / 60, TimeUnit.MINUTES)
+                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context) / 1000 / 60, TimeUnit.MINUTES)
                 .setConstraints(new Constraints.Builder()
                         .setRequiresDeviceIdle(bReqIdle)
                         .setRequiresBatteryNotLow(true)
@@ -394,12 +394,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
         if (isScheduleActive())
             timerArc.start();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        int i = 0;
     }
 
     /**
@@ -634,8 +628,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         else if (key.equals(getString(R.string.preference_worker_last_queue))) {
             if (isScheduleActive())
                 timerArc.start();
-        }
-        else if (!isloading && key.equals("sources")) {
+        } else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
             // Scroll to the newly added images, but don't scroll on delete
             if (images.size() > lastRecordedSize)

@@ -65,6 +65,18 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         return Math.min(width / columns, Math.min(width, height));
     }
 
+    //Fixed a problem where changing column count would generate an exception
+    public static boolean isValidContextForGlide(final Context context) {
+        if (context == null) {
+            return false;
+        }
+        if (context instanceof Activity) {
+            final Activity activity = (Activity) context;
+            return !activity.isDestroyed() && !activity.isFinishing();
+        }
+        return true;
+    }
+
     @NonNull
     @Override
     public ImageHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -75,7 +87,8 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     public void onBindViewHolder(@NonNull ImageHolder holder, int position) {
-        holder.ivBlocker.setOnClickListener(v -> {});
+        holder.ivBlocker.setOnClickListener(v -> {
+        });
         ImageObject img = store.getImageObject(position);
         String type = img.getType();
         String name = img.getName();
@@ -118,24 +131,13 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Override
     public void onViewRecycled(@NonNull ImageHolder holder) {
-        if (isValidContextForGlide(context)){
+        if (isValidContextForGlide(context)) {
             Glide.with(context).clear(holder.ivImage);
         }
         //holder.ivImage.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_baseline_pending_24));
         super.onViewRecycled(holder);
     }
 
-    //Fixed a problem where changing column count would generate an exception
-    public static boolean isValidContextForGlide(final Context context) {
-        if (context == null) {
-            return false;
-        }
-        if (context instanceof Activity) {
-            final Activity activity = (Activity) context;
-            return !activity.isDestroyed() && !activity.isFinishing();
-        }
-        return true;
-    }
     @Override
     public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
@@ -150,7 +152,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         //notifyDataSetChanged();
     }
 
-    public void saveToPrefs(){
+    public void saveToPrefs() {
         store.saveToPrefs(context);
     }
 

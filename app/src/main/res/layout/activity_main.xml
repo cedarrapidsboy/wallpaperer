@@ -68,7 +68,7 @@
         app:layout_constraintEnd_toEndOf="@+id/floatingActionButton"
         app:layout_constraintStart_toStartOf="@+id/floatingActionButton"
         app:layout_constraintTop_toTopOf="@+id/floatingActionButton"
-        app:ringColor="@color/white"/>
+        app:ringColor="@color/white" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

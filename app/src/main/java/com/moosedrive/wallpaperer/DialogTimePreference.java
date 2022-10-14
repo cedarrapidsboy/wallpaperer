@@ -37,7 +37,7 @@ public class DialogTimePreference extends DialogPreference {
     }
 
     public static String timeToString(int h, int m) {
-        return String.format(Locale.US,"%02d", h) + ":" + String.format(Locale.US,"%02d", m);
+        return String.format(Locale.US, "%02d", h) + ":" + String.format(Locale.US, "%02d", m);
     }
 
     @Override
