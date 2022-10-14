@@ -5,14 +5,19 @@ import android.content.SharedPreferences;
 
 import androidx.preference.PreferenceManager;
 
+import java.util.Date;
+
 public class PreferenceHelper {
     private static SharedPreferences sharedPreferences = null;
 
     public static long getScheduledWallpaperChange(Context context){
         init(context);
-        long lastChange = sharedPreferences.getLong("worker_last_change", 0);
+        return getLastWallpaperChange(context) + getWallpaperDelay(context);
+    }
 
-        return lastChange + getWallpaperDelay(context);
+    public static long getLastWallpaperChange(Context context){
+        init(context);
+        return sharedPreferences.getLong("worker_last_change", 0);
     }
 
     public static long getWallpaperDelay(Context context){
@@ -23,8 +28,25 @@ public class PreferenceHelper {
         return Math.max((hours * 60 + minutes) * 60, 15 * 60) * 1000L;
     }
 
+    public static boolean idleOnly(Context context){
+        init(context);
+        return sharedPreferences.getBoolean(context.getApplicationContext().getResources().getString(R.string.preference_idle), false);
+    }
+
     private static void init(Context context) {
         if (sharedPreferences == null)
             sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+    }
+
+    public static void setActive(Context context, boolean bool) {
+        init(context);
+        SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+        prefEdit.putBoolean("isActive", bool);
+        prefEdit.apply();
+    }
+
+    public static boolean isActive(Context context){
+        init(context);
+        return sharedPreferences.getBoolean("isActive", false);
     }
 }

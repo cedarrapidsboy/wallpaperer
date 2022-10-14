@@ -139,7 +139,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
 
         timerArc = (TimerArc) findViewById(R.id.timerArc);
-        timerArc.start();
+        if (isScheduleActive())
+            timerArc.start();
     }
 
     private void runFirstTimeShowcase() {
@@ -369,20 +370,29 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void scheduleRandomWallpaper(boolean replace) {
         ExistingPeriodicWorkPolicy policy = (replace) ? ExistingPeriodicWorkPolicy.REPLACE : ExistingPeriodicWorkPolicy.KEEP;
+        if (replace) {
+            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+            long now = new Date().getTime();
+            prefEdit.putLong("worker_last_change", now);
+            prefEdit.apply();
+        }
         boolean bReqIdle = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getResources().getString(R.string.preference_idle), false);
-        PeriodicWorkRequest saveRequest = new PeriodicWorkRequest
-                .Builder(WallpaperWorker.class, 15, TimeUnit.MINUTES)
-                .setInitialDelay(15, TimeUnit.MINUTES)
+        PeriodicWorkRequest.Builder requestBuilder = new PeriodicWorkRequest
+                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context), TimeUnit.MILLISECONDS)
+                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context), TimeUnit.MILLISECONDS)
                 .setConstraints(new Constraints.Builder()
                         .setRequiresDeviceIdle(bReqIdle)
                         .setRequiresBatteryNotLow(true)
-                        .build())
-                .setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS)
-                .build();
+                        .build());
+        if (!PreferenceHelper.idleOnly(context))
+            requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        PeriodicWorkRequest saveRequest = requestBuilder.build();
         WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(getString(R.string.work_random_wallpaper_id)
                         , policy
                         , saveRequest);
+        if (isScheduleActive())
+            timerArc.start();
     }
 
     /**
@@ -434,7 +444,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 if (imgObjectId != null) {
                     data.putString("id", imgObjectId);
                 }
-                data.putBoolean("immediate", true);
                 nowRequest = new OneTimeWorkRequest
                         .Builder(WallpaperWorker.class)
                         .setInputData(data.build())
@@ -496,14 +505,17 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void processToggle(boolean isChecked) {
         if (isChecked) {
-            scheduleRandomWallpaper(false);
-
+            boolean previouslyActive = PreferenceHelper.isActive(context);
+            scheduleRandomWallpaper(!previouslyActive);
+            PreferenceHelper.setActive(context, true);
             Toast.makeText(context,
                     getString(R.string.toast_changer_active),
                     Toast.LENGTH_SHORT).show();
         } else {
             WorkManager.getInstance(context)
                     .cancelAllWork();
+            PreferenceHelper.setActive(context, false);
+            timerArc.stop();
         }
     }
 
@@ -613,7 +625,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         else if (key.equals("worker_last_change")) {
-            timerArc.start();
+            if (isScheduleActive())
+                timerArc.start();
         }
         else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
