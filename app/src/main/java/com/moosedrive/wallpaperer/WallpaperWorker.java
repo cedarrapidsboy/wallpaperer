@@ -28,6 +28,9 @@ import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * The type Wallpaper worker.
+ */
 public class WallpaperWorker extends Worker {
 
     private final Context context;
@@ -35,6 +38,14 @@ public class WallpaperWorker extends Worker {
     private ImageObject imgObject;
 
 
+    /**
+     * Instantiates a new Wallpaper worker.
+     * Valid input data:
+     * "id" - an ImageObject id
+     *
+     * @param context      the context
+     * @param workerParams the worker params
+     */
     public WallpaperWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
         this.context = context;
@@ -52,10 +63,6 @@ public class WallpaperWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-
-        // Run with the specified periodicity (with 1 minute of slack)
-        // Unless called with the immediate flag, the periodic work request is limited to 15+ minutes periodicity
-
 
         int compatWidth;
         int compatHeight;
@@ -114,20 +121,42 @@ public class WallpaperWorker extends Worker {
         long now = new Date().getTime();
         prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
         prefEdit.apply();
+        // schedule the next wallpaper change
         if (PreferenceHelper.isActive(context))
             scheduleRandomWallpaper(context);
         return Result.success();
     }
 
+    /**
+     * Start the wallpaper scheduler.
+     * Will wait the preferred wallpaper delay (from preferences) prior to the first execution.
+     *
+     * @param context the context
+     */
     public static void scheduleRandomWallpaper(Context context) {
         scheduleRandomWallpaper(context, false, null);
     }
 
+    /**
+     * Change the wallpaper now.
+     * Will reset the wallpaper scheduler timer if it is currently running.
+     *
+     * @param context     the context
+     * @param imgObjectId the img object id
+     */
     public static void changeWallpaperNow(Context context, String imgObjectId) {
         scheduleRandomWallpaper(context, true, imgObjectId);
     }
 
-    public static void scheduleRandomWallpaper(Context context, Boolean runNow, String imgObjectId) {
+    /**
+     * Schedule random wallpaper.
+     * Depending on arguments it may change the wallpaper immediately or simply start the scheduler new.
+     *
+     * @param context     the context
+     * @param runNow      change the wallpaper immediately, will neither cancel nor start a schedule (will reset a running schedule)
+     * @param imgObjectId the img object id
+     */
+    private static void scheduleRandomWallpaper(Context context, Boolean runNow, String imgObjectId) {
         Context mContext = context.getApplicationContext();
         boolean bReqIdle = PreferenceHelper.idleOnly(mContext);
         Data.Builder data = new Data.Builder();
