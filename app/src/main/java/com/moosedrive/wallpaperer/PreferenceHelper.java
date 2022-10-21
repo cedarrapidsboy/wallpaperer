@@ -10,10 +10,10 @@ public class PreferenceHelper {
 
     public static long getScheduledWallpaperChange(Context context) {
         init(context);
-        return getLastWallpaperChange(context) + getWallpaperDelay(context);
+        return getLastWallpaperQueue(context) + getWallpaperDelay(context);
     }
 
-    public static long getLastWallpaperChange(Context context) {
+    public static long getLastWallpaperQueue(Context context) {
         init(context);
         return sharedPreferences.getLong(context.getString(R.string.preference_worker_last_queue), 0);
     }
@@ -23,7 +23,7 @@ public class PreferenceHelper {
         String delay = sharedPreferences.getString(context.getString(R.string.preference_time_delay), "00:15");
         int hours = Integer.parseInt(delay.split(":")[0]);
         int minutes = Integer.parseInt(delay.split(":")[1]);
-        return Math.max((hours * 60 + minutes) * 60, 15 * 60) * 1000L;
+        return (hours * 60L + minutes) * 60 * 1000L;
     }
 
     public static boolean idleOnly(Context context) {

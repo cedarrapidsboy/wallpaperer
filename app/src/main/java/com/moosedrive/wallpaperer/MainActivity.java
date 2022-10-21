@@ -34,15 +34,7 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.work.BackoffPolicy;
-import androidx.work.Constraints;
-import androidx.work.Data;
-import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.PeriodicWorkRequest;
-import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
-import androidx.work.WorkRequest;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.ListPreloader;
@@ -60,13 +52,12 @@ import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
@@ -139,8 +130,16 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
 
         timerArc = findViewById(R.id.timerArc);
-        if (isScheduleActive())
+        if (PreferenceHelper.isActive(context)) {
+            try {
+                if (WorkManager.getInstance(context).getWorkInfosByTag(getString(R.string.work_random_wallpaper_id)).get().size() == 0){
+                    WallpaperWorker.scheduleRandomWallpaper(context);
+                }
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             timerArc.start();
+        }
     }
 
     private void runFirstTimeShowcase() {
@@ -362,40 +361,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
     }
 
-
-    /**
-     * Schedule random wallpaper.
-     *
-     * @param replace the replace
-     */
-    public void scheduleRandomWallpaper(boolean replace) {
-        ExistingPeriodicWorkPolicy policy = (replace) ? ExistingPeriodicWorkPolicy.REPLACE : ExistingPeriodicWorkPolicy.KEEP;
-
-        boolean bReqIdle = PreferenceHelper.idleOnly(context);
-        PeriodicWorkRequest.Builder requestBuilder = new PeriodicWorkRequest
-                .Builder(WallpaperWorker.class, PreferenceHelper.getWallpaperDelay(context) / 1000 / 60, TimeUnit.MINUTES)
-                .setInitialDelay(PreferenceHelper.getWallpaperDelay(context) / 1000 / 60, TimeUnit.MINUTES)
-                .setConstraints(new Constraints.Builder()
-                        .setRequiresDeviceIdle(bReqIdle)
-                        .setRequiresBatteryNotLow(true)
-                        .build());
-        if (!bReqIdle)
-            requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
-        PeriodicWorkRequest saveRequest = requestBuilder.build();
-        WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(getString(R.string.work_random_wallpaper_id)
-                        , policy
-                        , saveRequest);
-        if (replace) {
-            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
-            long now = new Date().getTime();
-            prefEdit.putLong(getString(R.string.preference_worker_last_queue), now);
-            prefEdit.apply();
-        }
-        if (isScheduleActive())
-            timerArc.start();
-    }
-
     /**
      * Checks if the storage item for the image exists.
      *
@@ -440,22 +405,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                         "Image no longer exists. Thumbnail removed.",
                         Toast.LENGTH_SHORT).show();
             } else {
-                WorkRequest nowRequest;
-                Data.Builder data = new Data.Builder();
-                if (imgObjectId != null) {
-                    data.putString("id", imgObjectId);
-                }
-                nowRequest = new OneTimeWorkRequest
-                        .Builder(WallpaperWorker.class)
-                        .setInputData(data.build())
-                        .build();
-                WorkManager.getInstance(context).enqueue(nowRequest);
+                WallpaperWorker.changeWallpaperNow(context, imgObjectId);
                 Toast.makeText(context,
                         getResources().getText(R.string.toast_wallpaper_changing),
                         Toast.LENGTH_SHORT).show();
-                // reset the periodic wallpaper changer
-                if (isScheduleActive())
-                    scheduleRandomWallpaper(true);
             }
         }
     }
@@ -492,11 +445,12 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      * Initialize wallpaper toggle.
      */
     public void initializeWallpaperToggle() {
-        if (isScheduleActive() && !toggler.isChecked()) {
-            toggler.setChecked(true);
-        } else if (toggler.isChecked()) {
+        if (PreferenceHelper.isActive(context)) {
+            if (!toggler.isChecked())
+                toggler.setChecked(true);
+        } else
             toggler.setChecked(false);
-        }
+
     }
 
     /**
@@ -506,15 +460,16 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void processToggle(boolean isChecked) {
         if (isChecked) {
-            boolean previouslyActive = PreferenceHelper.isActive(context);
-            scheduleRandomWallpaper(!previouslyActive);
-            PreferenceHelper.setActive(context, true);
-            Toast.makeText(context,
-                    getString(R.string.toast_changer_active),
-                    Toast.LENGTH_SHORT).show();
+            if (!PreferenceHelper.isActive(context)) {
+                WallpaperWorker.scheduleRandomWallpaper(context);
+                PreferenceHelper.setActive(context, true);
+                Toast.makeText(context,
+                        getString(R.string.toast_changer_active),
+                        Toast.LENGTH_SHORT).show();
+            }
         } else {
             WorkManager.getInstance(context)
-                    .cancelAllWork();
+                    .cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             PreferenceHelper.setActive(context, false);
             timerArc.stop();
         }
@@ -535,7 +490,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
         someActivityResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
     }
-
 
     private void enableSwipeToDeleteAndUndo() {
         SwipeToDeleteCallback swipeToDeleteCallback = new SwipeToDeleteCallback(this) {
@@ -588,25 +542,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         itemTouchhelper.attachToRecyclerView(rv);
     }
 
-    private boolean isScheduleActive() {
-        return isWorkScheduled(context);
-
-    }
-
-    private boolean isWorkScheduled(Context context) {
-
-        WorkManager instance = WorkManager.getInstance(context);
-        try {
-            List<WorkInfo> infos = instance.getWorkInfosForUniqueWork(getString(R.string.work_random_wallpaper_id)).get();
-            if (infos.size() > 0)
-                if (infos.get(0).getState() == WorkInfo.State.ENQUEUED || infos.get(0).getState() == WorkInfo.State.RUNNING)
-                    return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
     @Override
     public void onSetWpClick(int position) {
         setSingleWallpaper(images.getImageObject(position).getId());
@@ -619,15 +554,27 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             setupRecyclerView();
         } else if (key.equals(getResources().getString(R.string.preference_idle))) {
             if (sharedPreferences.getBoolean(key, false)) {
-                scheduleRandomWallpaper(true);
+                if (PreferenceHelper.isActive(this)) {
+                    //reschedule the job since we cannot change existing constraints
+                    WallpaperWorker.scheduleRandomWallpaper(context);
+                }
             }
         } else if (key.equals(getString(R.string.preference_time_delay))) {
-            scheduleRandomWallpaper(true);
+            if (PreferenceHelper.isActive(this)) {
+                WallpaperWorker.scheduleRandomWallpaper(context);
+            }
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         else if (key.equals(getString(R.string.preference_worker_last_queue))) {
-            if (isScheduleActive())
+            if (PreferenceHelper.isActive(context))
                 timerArc.start();
+        } else if (key.equals("isActive")) {
+            if (PreferenceHelper.isActive(context))
+                timerArc.start();
+            else {
+                timerArc.stop();
+                WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
+            }
         } else if (!isloading && key.equals("sources")) {
             runOnUiThread(() -> adapter.notifyDataSetChanged());
             // Scroll to the newly added images, but don't scroll on delete
@@ -653,4 +600,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
     }
+
+
 }

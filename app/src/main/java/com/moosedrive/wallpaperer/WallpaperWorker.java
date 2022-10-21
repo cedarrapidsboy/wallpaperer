@@ -13,12 +13,20 @@ import android.view.WindowMetrics;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
+import androidx.work.BackoffPolicy;
+import androidx.work.Constraints;
+import androidx.work.Data;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import java.io.IOException;
 import java.util.Date;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 
 public class WallpaperWorker extends Worker {
 
@@ -51,6 +59,7 @@ public class WallpaperWorker extends Worker {
 
         int compatWidth;
         int compatHeight;
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             WindowMetrics metrics = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getCurrentWindowMetrics();
             compatWidth = metrics.getBounds().width();
@@ -97,16 +106,56 @@ public class WallpaperWorker extends Worker {
                     e.printStackTrace();
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.failure();
+        } catch (CancellationException e) {
+            //do nothing
         }
+
         SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
         long now = new Date().getTime();
-        prefEdit.putLong(context.getString(R.string.preference_worker_last_queue), now);
+        prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
         prefEdit.apply();
-
+        if (PreferenceHelper.isActive(context))
+            scheduleRandomWallpaper(context);
         return Result.success();
     }
 
+    public static void scheduleRandomWallpaper(Context context) {
+        scheduleRandomWallpaper(context, false, null);
+    }
+
+    public static void changeWallpaperNow(Context context, String imgObjectId) {
+        scheduleRandomWallpaper(context, true, imgObjectId);
+    }
+
+    public static void scheduleRandomWallpaper(Context context, Boolean runNow, String imgObjectId) {
+        Context mContext = context.getApplicationContext();
+        boolean bReqIdle = PreferenceHelper.idleOnly(mContext);
+        Data.Builder data = new Data.Builder();
+        if (imgObjectId != null) {
+            data.putString("id", imgObjectId);
+        }
+        OneTimeWorkRequest.Builder requestBuilder = new OneTimeWorkRequest
+                .Builder(WallpaperWorker.class)
+                .setInputData(data.build())
+                .setConstraints(new Constraints.Builder()
+                        .setRequiresDeviceIdle(bReqIdle)
+                        .setRequiresBatteryNotLow(true)
+                        .build());
+        if (!bReqIdle)
+            requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        if (!runNow) {
+            requestBuilder.setInitialDelay(PreferenceHelper.getWallpaperDelay(mContext), TimeUnit.MILLISECONDS)
+                    .addTag(context.getString(R.string.work_random_wallpaper_id));
+            WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
+        }
+        OneTimeWorkRequest saveRequest = requestBuilder.build();
+        WorkManager.getInstance(mContext)
+                .enqueue(saveRequest);
+
+        if (!runNow) {
+            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+            prefEdit.putLong(mContext.getString(R.string.preference_worker_last_queue), new Date().getTime());
+            prefEdit.apply();
+        }
+    }
 }

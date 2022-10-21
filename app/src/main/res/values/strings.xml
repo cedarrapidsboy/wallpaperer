@@ -40,7 +40,7 @@
     <string name="preference_recompress">preference_recompress</string>
     <string name="toast_add_an_image_toggle">Add an image before enabling the wallpaper changer.</string>
     <string name="preference_time_delay">preference_time_delay</string>
-    <string name="toast_delay_too_short">Delay too short. Using 15 minutes instead.</string>
+    <string name="toast_delay_too_short">Delay too short. Using 1 minute instead.</string>
     <string name="delay_preference_summary">Time between wallpaper changes.</string>
     <string name="delay_preference_title">Wallpaper delay</string>
     <string name="preference_card_stats">preference_card_stats</string>
@@ -80,6 +80,7 @@
     <string name="about_app_description">Automatically change your home screen wallpaper on a predefined interval.</string>
     <string name="about_storage_details">{0} of {1} GiB available</string>
     <string name="about_licenses" tools:ignore="TypographyDashes">medyo/android-about-page © 2016 Mehdi Sakout The MIT License (MIT) – bumptech/glide BSD, part MIT and Apache 2.0 licenses – zhanghai/AndroidFastScroll © 2019 Google LLC Apache 2.0 License – amlcurran/ShowcaseView © 2012-2014 Alex Curran Apache 2.0 License – stfalcon-studio/StfalconImageViewer © 2018 stfalcon.com Apache 2.0 License</string>
-    <string name="preference_worker_last_queue">worker_last_change</string>
+    <string name="preference_worker_last_change">worker_last_change</string>
+    <string name="preference_worker_last_queue">worker_last_queue</string>
 
 </resources>

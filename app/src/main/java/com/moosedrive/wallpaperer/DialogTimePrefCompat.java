@@ -33,8 +33,8 @@ public class DialogTimePrefCompat extends PreferenceDialogFragmentCompat {
             DialogTimePreference pref = (DialogTimePreference) getPreference();
             pref.hour = timePicker.getHour();
             pref.minute = timePicker.getMinute();
-            if (pref.hour == 0 && pref.minute < 15) {
-                pref.minute = 15;
+            if (pref.hour == 0 && pref.minute < 1) {
+                pref.minute = 1;
                 Toast.makeText(getContext(), getString(R.string.toast_delay_too_short), Toast.LENGTH_LONG).show();
             }
 
