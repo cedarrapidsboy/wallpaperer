@@ -82,5 +82,17 @@
     <string name="about_licenses" tools:ignore="TypographyDashes">medyo/android-about-page © 2016 Mehdi Sakout The MIT License (MIT) – bumptech/glide BSD, part MIT and Apache 2.0 licenses – zhanghai/AndroidFastScroll © 2019 Google LLC Apache 2.0 License – amlcurran/ShowcaseView © 2012-2014 Alex Curran Apache 2.0 License – stfalcon-studio/StfalconImageViewer © 2018 stfalcon.com Apache 2.0 License</string>
     <string name="preference_worker_last_change">worker_last_change</string>
     <string name="preference_worker_last_queue">worker_last_queue</string>
+    <string name="showcase_add_images">Add image(s)</string>
+    <string name="showcase_click_add">Click the (+) to select one or more images to add to the wallpaper changer.</string>
+    <string name="showcase_button_text">Next</string>
+    <string name="showcase_changer">Activate the wallpaper changer</string>
+    <string name="showcase_changer_text">Switch this \"on\" to start automatic wallpaper changing.</string>
+    <string name="showcase_done">Got it</string>
+    <string name="showcase_random">Surprise yourself!</string>
+    <string name="showcase_random_text">Tap this to immediately change the wallpaper to a random image from your list.</string>
+    <string name="showcase_manage">Manage your images here</string>
+    <string name="showcase_manage_text">Swipe images to delete them.\nClick images to view them.\nUse the share button to send the image somewhere.\nUse the \"next\" button to set it as wallpaper immediately.</string>
+    <string name="set_wallpaper_no_images">Please add an image. Nothing to do.</string>
+    <string name="set_wallpaper_missing_image">Image no longer exists. Thumbnail removed.</string>
 
 </resources>

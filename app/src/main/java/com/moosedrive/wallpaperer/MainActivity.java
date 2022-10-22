@@ -145,10 +145,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private void runFirstTimeShowcase() {
         ShowcaseView sv = new ShowcaseView.Builder(this)
                 .setTarget(new ViewTarget(R.id.floatingActionButton, this))
-                .setContentTitle("Add image(s)")
-                .setContentText("Click the (+) to select one or more images to add to the wallpaper changer.")
+                .setContentTitle(getString(R.string.showcase_add_images))
+                .setContentText(getString(R.string.showcase_click_add))
                 .build();
-        sv.setButtonText("Next");
+        sv.setButtonText(getString(R.string.showcase_button_text));
         sv.setStyle(R.style.CustomShowcaseTheme3);
 
         RelativeLayout.LayoutParams lps = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -169,22 +169,22 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 switch (count) {
                     case 1:
                         sv.setTarget(new ViewTarget(toggler));
-                        sv.setContentTitle("Activate the wallpaper changer");
-                        sv.setContentText("Switch this \"on\" to start automatic wallpaper changing.");
-                        sv.setButtonText("Next");
+                        sv.setContentTitle(getString(R.string.showcase_changer));
+                        sv.setContentText(getString(R.string.showcase_changer_text));
+                        sv.setButtonText(getString(R.string.showcase_button_text));
                         break;
                     case 2:
                         sv.setTarget(new ViewTarget(findViewById(R.id.next_wallpaper)));
-                        sv.setContentTitle("Surprise yourself!");
-                        sv.setContentText("Tap this to immediately change the wallpaper to a random image from your list.");
-                        sv.setButtonText("Next");
+                        sv.setContentTitle(getString(R.string.showcase_random));
+                        sv.setContentText(getString(R.string.showcase_random_text));
+                        sv.setButtonText(getString(R.string.showcase_button_text));
                         break;
                     case 3:
                         sv.setShowcaseX(Resources.getSystem().getDisplayMetrics().widthPixels / 2);
                         sv.setShowcaseY(Resources.getSystem().getDisplayMetrics().heightPixels / 2);
-                        sv.setContentTitle("Manage your images here");
-                        sv.setContentText("Swipe images to delete them.\nClick images to view them.\nUse the share button to send the image somewhere.\nUse the \"next\" button to set it as wallpaper immediately.");
-                        sv.setButtonText("Got it");
+                        sv.setContentTitle(getString(R.string.showcase_manage));
+                        sv.setContentText(getString(R.string.showcase_manage_text));
+                        sv.setButtonText(getString(R.string.showcase_done));
                         break;
 
 
@@ -393,7 +393,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public void setSingleWallpaper(String imgObjectId) {
         if (images.size() == 0) {
-            Snackbar.make(constraintLayout, "Please add an image. Nothing to do.", Snackbar.LENGTH_LONG)
+            Snackbar.make(constraintLayout, R.string.set_wallpaper_no_images, Snackbar.LENGTH_LONG)
                     .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                     .setTextColor(getColor(R.color.white))
                     .show();
@@ -402,7 +402,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 adapter.removeItem(images.getPosition(imgObjectId));
                 //StorageUtils.releasePersistableUriPermission(getBaseContext(), images.getImageObject(imgObjectId).getUri());
                 Toast.makeText(context,
-                        "Image no longer exists. Thumbnail removed.",
+                        R.string.set_wallpaper_missing_image,
                         Toast.LENGTH_SHORT).show();
             } else {
                 WallpaperWorker.changeWallpaperNow(context, imgObjectId);
