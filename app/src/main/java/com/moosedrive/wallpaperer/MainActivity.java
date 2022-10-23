@@ -84,9 +84,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         super.onCreate(savedInstanceState);
         context = this;
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         images = ImageStore.getInstance();
         images.updateFromPrefs(context);
         lastRecordedSize = images.size();
@@ -309,12 +309,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                             hash = UUID.randomUUID().toString();
                         if (images.getImageObject(hash) == null) {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
-                            long last;
-                            try {
-                                last = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context));
-                            } catch (NumberFormatException e) {
-                                last = new Date().getTime();
-                            }
                             String type = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_MIME_TYPE, context);
                             if (type.startsWith("image/")) {
                                 try {
@@ -324,7 +318,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                                     if (recompress) type = "image/jpeg";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date(last));
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
                                         img.generateThumbnail(context);
                                         activity.runOnUiThread(() -> adapter.addItem(img));
                                         adapter.saveToPrefs();

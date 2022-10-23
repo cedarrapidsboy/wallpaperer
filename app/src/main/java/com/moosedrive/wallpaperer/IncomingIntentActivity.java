@@ -145,12 +145,6 @@ public class IncomingIntentActivity extends AppCompatActivity {
                             hash = UUID.randomUUID().toString();
                         if (images.getImageObject(hash) == null) {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, this);
-                            long last;
-                            try {
-                                last = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, this));
-                            } catch (NumberFormatException e) {
-                                last = new Date().getTime();
-                            }
                             String type = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_MIME_TYPE, this);
                             if (type.startsWith("image/")) {
                                 try {
@@ -160,7 +154,7 @@ public class IncomingIntentActivity extends AppCompatActivity {
                                     if (recompress) type = "image/jpeg";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date(last));
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
                                         img.generateThumbnail(this);
                                         images.addImageObject(img);
                                         images.saveToPrefs(this);
