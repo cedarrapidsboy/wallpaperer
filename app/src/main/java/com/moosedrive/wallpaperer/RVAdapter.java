@@ -65,18 +65,6 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         return Math.min(width / columns, Math.min(width, height));
     }
 
-    //Fixed a problem where changing column count would generate an exception
-    public static boolean isValidContextForGlide(final Context context) {
-        if (context == null) {
-            return false;
-        }
-        if (context instanceof Activity) {
-            final Activity activity = (Activity) context;
-            return !activity.isDestroyed() && !activity.isFinishing();
-        }
-        return true;
-    }
-
     @NonNull
     @Override
     public ImageHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -116,7 +104,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         //Set the thumbnail in a different thread (long running resize operation)
         Glide
                 .with(context)
-                .load(img.getUri())
+                .load(img.getThumbUri(context))
                 .centerCrop()
                 .override(width)
                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
@@ -138,10 +126,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Override
     public void onViewRecycled(@NonNull ImageHolder holder) {
-        if (isValidContextForGlide(context)) {
-            Glide.with(context).clear(holder.ivImage);
-        }
-        //holder.ivImage.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.ic_baseline_pending_24));
+        Glide.with(context).clear(holder.ivImage);
         super.onViewRecycled(holder);
     }
 
@@ -194,7 +179,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         int width = getCardSize(context);
         //This needs to be identical (except "into") to the onBind glide builder
         return Glide.with(context)
-                .load(img.getUri())
+                .load(img.getThumbUri(context))
                 .centerCrop()
                 .override(width)
                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE);

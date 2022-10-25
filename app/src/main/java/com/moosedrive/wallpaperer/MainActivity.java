@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         new FastScrollerBuilder(rv).useMd2Style().build();
         ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
         //Pre-loader loads images into the Glide memory cache while they are still off screen
-        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, (columns * rows * 2) /*maxPreload*/);
+        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
         rv.addOnScrollListener(preloader);
     }
 

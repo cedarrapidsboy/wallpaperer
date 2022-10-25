@@ -150,8 +150,8 @@ public class StorageUtils {
                 bos = new BufferedOutputStream(new FileOutputStream(destination));
                 // Recompress before writing to new file
                 Bitmap originalBm = BitmapFactory.decodeStream(input);
-                originalBm = resizeAspect(64, 64, originalBm);
-                originalBm.compress(Bitmap.CompressFormat.WEBP, 90, bos);
+                originalBm = resizeBitmapCenter(512, 512, originalBm, true);
+                originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
                 input.close();
                 bos.flush();
                 bos.close();
