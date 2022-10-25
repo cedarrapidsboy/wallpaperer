@@ -56,8 +56,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
@@ -77,9 +75,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
     private SwitchMaterial toggler;
-    private ThreadPoolExecutor executor;
     private int lastRecordedSize;
-
     private TimerArc timerArc;
 
     @Override
@@ -90,11 +86,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         images = ImageStore.getInstance();
         images.updateFromPrefs(context);
         lastRecordedSize = images.size();
-
-        int procs = (Runtime.getRuntime().availableProcessors() < 2)
-                ? 1
-                : Runtime.getRuntime().availableProcessors() - 1;
-        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(procs);
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -339,10 +330,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                     loadingDialog.incrementProgressBy(1);
                     loadingDoneSignal.countDown();
                 });
-                executor.execute(t);
+                BackgroundExecutor.getExecutor().execute(t);
             }
             // UI work that waits for the image loading to complete
-            executor.execute(() -> {
+            BackgroundExecutor.getExecutor().execute(() -> {
                 try {
                     loadingDoneSignal.await();
                 } catch (InterruptedException e) {

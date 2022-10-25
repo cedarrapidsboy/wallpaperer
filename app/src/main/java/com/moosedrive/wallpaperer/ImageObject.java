@@ -33,9 +33,15 @@ public class ImageObject {
 
     public void setColor(int color) {
         this.color = color;
+        this.isColorSet = true;
+    }
+
+    public boolean isColorSet() {
+        return isColorSet;
     }
 
     private int color;
+    private boolean isColorSet = false;
 
     /**
      * Instantiates a new Image object.
@@ -141,8 +147,9 @@ public class ImageObject {
      */
     public int getColorFromBitmap(Context context) {
         Bitmap bm;
+        Uri colorUri = (thumbUri != null)?this.thumbUri:this.uri;
         try {
-            bm = MediaStore.Images.Media.getBitmap(context.getContentResolver(), this.uri);
+            bm = MediaStore.Images.Media.getBitmap(context.getContentResolver(), colorUri);
         } catch (IOException e) {
             return context.getColor(androidx.cardview.R.color.cardview_dark_background);
         }

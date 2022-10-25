@@ -89,8 +89,14 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     public void onBindViewHolder(@NonNull ImageHolder holder, int position) {
         holder.ivBlocker.setOnClickListener(v -> {
         });
-        ImageObject img = store.getImageObject(position);
-        holder.ivImage.setBackgroundColor(img.getColor());
+        final ImageObject img = store.getImageObject(position);
+        int color = img.getColor();
+        if (!img.isColorSet()) {
+            // Color isn't generated. Don't wait, but do it for next time.
+            color = context.getColor(androidx.cardview.R.color.cardview_dark_background);
+            BackgroundExecutor.getExecutor().execute(() -> img.setColor(img.getColorFromBitmap(context)));
+        }
+        holder.ivImage.setBackgroundColor(color);
         String type = img.getType();
         String name = img.getName();
         Date date = img.getDate();

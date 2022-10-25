@@ -56,12 +56,13 @@ public class ImageStore {
                 try {
                     pfd = context.getContentResolver().openFileDescriptor(uri, "r");
                     pfd.close();
-                    is.addImageObject(uri,
+                    ImageObject io = is.addImageObject(uri,
                             imageArray.getJSONObject(i).getString("id"),
                             imageArray.getJSONObject(i).getString("name"),
                             imageArray.getJSONObject(i).getLong("size"),
                             imageArray.getJSONObject(i).getString("type"),
                             new Date(imageArray.getJSONObject(i).getLong("date")));
+                    io.setColor(imageArray.getJSONObject(i).getInt("color"));
                 } catch (FileNotFoundException e) {
                     //StorageUtils.releasePersistableUriPermission(context, uri);
                     System.out.println("ERROR: loadFromPrefs: File no longer exists.");
@@ -221,6 +222,7 @@ public class ImageStore {
                 imageJson.put("size", io.getSize());
                 imageJson.put("type", io.getType());
                 imageJson.put("date", io.getDate().getTime());
+                imageJson.put("color", io.getColor());
                 imageArray.put(imageJson);
             } catch (JSONException e) {
                 e.printStackTrace();
