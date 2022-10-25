@@ -1,7 +1,11 @@
 package com.moosedrive.wallpaperer;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.net.Uri;
+import android.provider.MediaStore;
+
+import androidx.palette.graphics.Palette;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -23,6 +27,16 @@ public class ImageObject {
     private boolean isGenerating;
     private Uri thumbUri;
 
+    public int getColor() {
+        return color;
+    }
+
+    public void setColor(int color) {
+        this.color = color;
+    }
+
+    private int color;
+
     /**
      * Instantiates a new Image object.
      *
@@ -43,6 +57,7 @@ public class ImageObject {
         this.date = date;
         this.thumbUri = null;
         this.isGenerating = false;
+        this.color = -1;
     }
 
     @SuppressWarnings("unused")
@@ -116,5 +131,22 @@ public class ImageObject {
      */
     public Date getDate() {
         return date;
+    }
+
+    /**
+     * Generates a dominant color from the Image associated with this ImageObject.
+     *
+     * @param context The application context
+     * @return Packed int color
+     */
+    public int getColorFromBitmap(Context context) {
+        Bitmap bm;
+        try {
+            bm = MediaStore.Images.Media.getBitmap(context.getContentResolver(), this.uri);
+        } catch (IOException e) {
+            return context.getColor(androidx.cardview.R.color.cardview_dark_background);
+        }
+        Palette p = Palette.from(bm).generate();
+        return p.getDarkVibrantColor(context.getColor(androidx.cardview.R.color.cardview_dark_background));
     }
 }

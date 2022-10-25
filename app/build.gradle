@@ -73,4 +73,7 @@ dependencies {
     implementation 'com.github.bumptech.glide:recyclerview-integration:4.11.0'
 
     implementation 'io.github.medyo:android-about-page:2.0.0'
+
+    // To get bitmap colors
+    implementation 'androidx.palette:palette:1.0.0'
 }

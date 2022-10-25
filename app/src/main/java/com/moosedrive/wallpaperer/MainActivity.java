@@ -320,6 +320,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                                     try {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
                                         img.generateThumbnail(context);
+                                        img.setColor(img.getColorFromBitmap(context));
                                         activity.runOnUiThread(() -> adapter.addItem(img));
                                         adapter.saveToPrefs();
                                     } catch (NoSuchAlgorithmException | IOException e) {

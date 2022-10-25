@@ -90,6 +90,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         holder.ivBlocker.setOnClickListener(v -> {
         });
         ImageObject img = store.getImageObject(position);
+        holder.ivImage.setBackgroundColor(img.getColor());
         String type = img.getType();
         String name = img.getName();
         Date date = img.getDate();
