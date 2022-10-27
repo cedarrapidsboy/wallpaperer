@@ -312,8 +312,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                                         ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
-                                        activity.runOnUiThread(() -> adapter.addItem(img));
-                                        adapter.saveToPrefs();
+                                        images.addImageObject(img);
+                                        activity.runOnUiThread(() -> adapter.notifyItemInserted(images.getPosition(img.getId())));
+                                        images.saveToPrefs(getApplicationContext());
                                     } catch (NoSuchAlgorithmException | IOException e) {
                                         e.printStackTrace();
                                     }
@@ -494,7 +495,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 final boolean fToggled = toggled;
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
-                    adapter.addItem(item, position);
+                    images.addImageObject(item, position);
+                    adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
                     rv.scrollToPosition(position);

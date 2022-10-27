@@ -1,6 +1,5 @@
 package com.moosedrive.wallpaperer;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -96,17 +95,14 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         holder.tvDate.setText(sDate);
         holder.tvType.setText(Html.fromHtml(type, Html.FROM_HTML_MODE_COMPACT));
         holder.tvSize.setText(String.format(Locale.US, context.getString(R.string.file_size), img.getSize() / (1024.0 * 1024.0)));
-        //holder.ivImage.requestLayout();
-        int width = getCardSize(context);
-        holder.itemView.getLayoutParams().width = width;
-        //noinspection SuspiciousNameCombination
-        holder.itemView.getLayoutParams().height = width;
-        //Set the thumbnail in a different thread (long running resize operation)
+        int squareDimen = getCardSize(context);
+        holder.itemView.getLayoutParams().width = squareDimen;
+        holder.itemView.getLayoutParams().height = squareDimen;
         Glide
                 .with(context)
                 .load(img.getThumbUri(context))
                 .centerCrop()
-                .override(width)
+                .override(squareDimen)
                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                 .into(holder.ivImage);
 
@@ -116,7 +112,6 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @Override
     public long getItemId(int position) {
         return store.getImageObject(position).hashCode();
-        //return super.getItemId(position);
     }
 
     @Override
@@ -141,20 +136,6 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     public void removeItem(int position) {
         notifyItemRemoved(position);
-        //notifyDataSetChanged();
-    }
-
-    public void saveToPrefs() {
-        store.saveToPrefs(context);
-    }
-
-    public void addItem(ImageObject item) {
-        addItem(item, store.getPosition(item.getId()));
-    }
-
-    public void addItem(ImageObject item, int position) {
-        store.addImageObject(item, position);
-        notifyItemInserted(store.getPosition(item.getId()));
     }
 
     public ArrayList<ImageObject> getData() {

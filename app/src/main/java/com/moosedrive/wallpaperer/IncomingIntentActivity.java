@@ -156,6 +156,7 @@ public class IncomingIntentActivity extends AppCompatActivity {
                                     try {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
                                         img.generateThumbnail(this);
+                                        img.setColor(img.getColorFromBitmap(this));
                                         images.addImageObject(img);
                                         images.saveToPrefs(this);
                                     } catch (NoSuchAlgorithmException | IOException e) {
