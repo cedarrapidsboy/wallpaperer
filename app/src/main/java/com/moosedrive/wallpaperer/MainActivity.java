@@ -37,6 +37,7 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.work.WorkManager;
 
 import com.bumptech.glide.Glide;
@@ -89,7 +90,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
         //Get layout for snackbars (e.g., item removal notification)
         constraintLayout = findViewById(R.id.constraint_layout);
-
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
 
@@ -190,6 +190,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     }
 
 
+    @SuppressLint("NotifyDataSetChanged")
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
         adapter = new RVAdapter(context);
@@ -204,6 +205,16 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         adapter.setHasStableIds(true);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
+        SwipeRefreshLayout swipeLayout = (SwipeRefreshLayout)findViewById(R.id.swiperefresh);
+        swipeLayout.setOnRefreshListener(() -> BackgroundExecutor.getExecutor().execute(() -> {
+            images.updateFromPrefs(getApplicationContext());
+            for (ImageObject obj : images.getImageObjectArray())
+                if (!StorageUtils.fileExists(obj.getUri()))
+                    images.delImageObject(obj.getId());
+            images.saveToPrefs(getApplicationContext());
+            runOnUiThread(() -> adapter.notifyDataSetChanged());
+            swipeLayout.setRefreshing(false);
+        }));
         new FastScrollerBuilder(rv).useMd2Style().build();
         ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
         //Pre-loader loads images into the Glide memory cache while they are still off screen
@@ -552,4 +563,5 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             }
         }
     }
+
 }

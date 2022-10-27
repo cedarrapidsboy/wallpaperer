@@ -252,6 +252,11 @@ public class StorageUtils {
         return 0;
     }
 
+    public static boolean fileExists(Uri uri) {
+        File file = new File(uri.getPath());
+        return file.exists();
+    }
+
     public static String getFileAttrib(Uri uri, String column, Context context) {
         String result = null;
         if (uri.getScheme().equals("content")) {
