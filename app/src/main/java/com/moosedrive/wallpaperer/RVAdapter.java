@@ -90,6 +90,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         boolean showStats = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_card_stats), false);
         holder.tvFileName.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
         holder.flowStats.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
+        holder.flowStats.setBackgroundColor(color);
         holder.tvFileName.setText(name.toUpperCase());
         String sDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date);
         holder.tvDate.setText(sDate);

@@ -154,6 +154,6 @@ public class ImageObject {
             return context.getColor(androidx.cardview.R.color.cardview_dark_background);
         }
         Palette p = Palette.from(bm).generate();
-        return p.getDarkVibrantColor(context.getColor(androidx.cardview.R.color.cardview_dark_background));
+        return p.getDarkMutedColor(context.getColor(androidx.cardview.R.color.cardview_dark_background));
     }
 }
