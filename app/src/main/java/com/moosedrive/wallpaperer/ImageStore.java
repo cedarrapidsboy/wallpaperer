@@ -16,10 +16,15 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
@@ -28,12 +33,30 @@ import java.util.concurrent.CountDownLatch;
  */
 public class ImageStore {
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
-
+    public static final int SORT_BY_ADDED = -1;
+    public static final int SORT_BY_NAME = 0;
+    public static final int SORT_BY_DATE = 1;
+    public static final int SORT_BY_SIZE = 2;
+    public static final int SORT_DEFAULT = SORT_BY_ADDED;
     private static ImageStore store = null;
-    private LinkedHashMap<String, ImageObject> images;
+    private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
+    public CountDownLatch loadingDoneSignal;
+    public HashSet<String> loadingErrors = new HashSet<>();
+    private final Set<ImageStoreSortListener> sortListeners = new HashSet<>();
+    private int sortCriteria = SORT_BY_ADDED;
+    private LinkedHashMap<String, ImageObject> referenceImages;
+    private final ArrayList<SortedSet<ImageObject>> sortedImages = new ArrayList<>();
 
     private ImageStore() {
-        this.images = new LinkedHashMap<>();
+        this.referenceImages = new LinkedHashMap<>();
+        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)));
+        sortedImages.add(new TreeSet<>((o1, o2) -> {
+            if (o1.getDate().equals(o2.getDate()))
+                return 1;
+            else
+                return o1.getDate().compareTo(o2.getDate());
+        }));
+        sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)));
     }
 
     /**
@@ -119,11 +142,11 @@ public class ImageStore {
      * @param position the position Where to place the new object, or -1 to append
      */
     public synchronized void addImageObject(ImageObject img, int position) {
-        if (images.size() == 0 || position < 0 || position > (images.size() - 1)) {
-            images.put(img.getId(), img);
+        if (referenceImages.size() == 0 || position < 0 || position > (referenceImages.size() - 1)) {
+            referenceImages.put(img.getId(), img);
         } else {
             int curPos = 0;
-            LinkedHashMap<String, ImageObject> oldImages = images;
+            LinkedHashMap<String, ImageObject> oldImages = referenceImages;
             LinkedHashMap<String, ImageObject> newImages = new LinkedHashMap<>();
             for (String key : oldImages.keySet()) {
                 if (curPos == position)
@@ -131,7 +154,11 @@ public class ImageStore {
                 newImages.put(key, oldImages.get(key));
                 curPos++;
             }
-            images = newImages;
+            referenceImages = newImages;
+        }
+        //Add the image to each sorted list
+        for (SortedSet<ImageObject> imgArray : sortedImages){
+            imgArray.add(img);
         }
     }
 
@@ -141,9 +168,12 @@ public class ImageStore {
      * @param id the id
      */
     public synchronized void delImageObject(String id) {
-        images.remove(id);
+        ImageObject deadImgWalking = referenceImages.get(id);
+        referenceImages.remove(id);
+        for (SortedSet<ImageObject> imgArray : sortedImages){
+            imgArray.remove(deadImgWalking);
+        }
     }
-
 
     /**
      * Gets image object.
@@ -152,11 +182,11 @@ public class ImageStore {
      * @return the image object
      */
     public synchronized ImageObject getImageObject(String id) {
-        return images.get(id);
+        return referenceImages.get(id);
     }
 
     public synchronized ImageObject getImageObjectByName(String name) {
-        for (ImageObject img : images.values()) {
+        for (ImageObject img : referenceImages.values()) {
             if (img.getName().equals(name))
                 return img;
         }
@@ -179,7 +209,10 @@ public class ImageStore {
      * @return the image object [ ]
      */
     public synchronized ImageObject[] getImageObjectArray() {
-        return images.values().toArray(new ImageObject[0]);
+        if (sortCriteria == SORT_BY_ADDED)
+            return referenceImages.values().toArray(new ImageObject[0]);
+        else
+            return sortedImages.get(sortCriteria).toArray(new ImageObject[0]);
     }
 
     /**
@@ -187,10 +220,10 @@ public class ImageStore {
      * @return position in image store, or -1 if not found
      */
     public synchronized int getPosition(String id) {
-        String[] keys = images.keySet().toArray(new String[0]);
+        ImageObject[] objs = getImageObjectArray();
         int pos = -1;
-        for (int i = 0; i < keys.length; i++) {
-            if (keys[i].equals(id))
+        for (int i = 0; i < objs.length; i++) {
+            if (objs[i].getId().equals(id))
                 pos = i;
         }
         return pos;
@@ -200,7 +233,10 @@ public class ImageStore {
      * Clear.
      */
     public synchronized void clear() {
-        images.clear();
+        referenceImages.clear();
+        for (SortedSet<ImageObject> imgArray : sortedImages){
+            imgArray.clear();
+        }
     }
 
     /**
@@ -209,7 +245,7 @@ public class ImageStore {
      * @return the int
      */
     public synchronized int size() {
-        return images.size();
+        return referenceImages.size();
     }
 
     /**
@@ -222,7 +258,7 @@ public class ImageStore {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
         JSONArray imageArray = new JSONArray();
-        for (ImageObject io : images.values().toArray(new ImageObject[0])) {
+        for (ImageObject io : referenceImages.values().toArray(new ImageObject[0])) {
             try {
                 JSONObject imageJson = new JSONObject();
                 imageJson.put("uri", io.getUri().toString());
@@ -241,16 +277,14 @@ public class ImageStore {
         edit.apply();
     }
 
-    private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
-    public CountDownLatch loadingDoneSignal;
-    public HashSet<String> loadingErrors = new HashSet<>();
-
-    public void addWallpaperAddedListener(WallpaperAddedListener wal){
+    public void addWallpaperAddedListener(WallpaperAddedListener wal) {
         wallpaperListeners.add(wal);
     }
-    public void removeWallpaperAddedListener(WallpaperAddedListener wal){
+
+    public void removeWallpaperAddedListener(WallpaperAddedListener wal) {
         wallpaperListeners.remove(wal);
     }
+
     /**
      * Add wallpapers from list of URI's.
      * Loading dialog is displayed and progress bar updated as wallpapers are added.
@@ -289,12 +323,13 @@ public class ImageStore {
                             if (type.startsWith("image/")) {
                                 try {
                                     String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+                                    String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
-                                    Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), uuid + "_" + name, recompress);
+                                    Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);
                                     if (recompress) type = "image/jpeg";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, modDate);
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, modDate);
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         addImageObject(img);
@@ -333,10 +368,50 @@ public class ImageStore {
                         sb.append(System.getProperty("line.separator"));
                     }
                     for (WallpaperAddedListener wal : wallpaperListeners)
-                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0)?WallpaperAddedListener.SUCCESS:WallpaperAddedListener.ERROR,sb.toString());
+                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0) ? WallpaperAddedListener.SUCCESS : WallpaperAddedListener.ERROR, sb.toString());
                 }
             });
         }
     }
 
+    public Optional<String> getExtension(String filename) {
+        return Optional.ofNullable(filename)
+                .filter(f -> f.contains("."))
+                .map(f -> f.substring(filename.lastIndexOf(".") + 1));
+    }
+
+    public int getSortCriteria() {
+        return sortCriteria;
+    }
+
+    public void setSortCriteria(int sortCriteria) {
+        this.sortCriteria = sortCriteria;
+        for (ImageStoreSortListener sl : sortListeners)
+            sl.onImageStoreSortChanged();
+    }
+
+    public void addSortListener(ImageStoreSortListener sl) {
+        sortListeners.add(sl);
+    }
+
+    public void removeSortListener(ImageStoreSortListener sl) {
+        sortListeners.remove(sl);
+    }
+
+    public interface ImageStoreSortListener {
+        void onImageStoreSortChanged();
+    }
+
+    public interface WallpaperAddedListener {
+        int SUCCESS = 0;
+        int ERROR = 1;
+
+        void onWallpaperAdded(ImageObject img);
+
+        void onWallpaperLoadingStarted(int size);
+
+        void onWallpaperLoadingIncrement(int inc);
+
+        void onWallpaperLoadingFinished(int status, String message);
+    }
 }

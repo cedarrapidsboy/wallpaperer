@@ -60,7 +60,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
+public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, ImageStore.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
     RecyclerView rv;
     ImageStore images;
@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         super.onCreate(savedInstanceState);
         context = this;
         images = ImageStore.getInstance();
+        images.setSortCriteria(ImageStore.SORT_BY_NAME);
         images.updateFromPrefs(context);
 
         setContentView(R.layout.activity_main);
@@ -531,7 +532,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         images.removeWallpaperAddedListener(this);
-        if (status != WallpaperAddedListener.SUCCESS){
+        if (status != ImageStore.WallpaperAddedListener.SUCCESS){
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null)?msg:"Unknown error.")

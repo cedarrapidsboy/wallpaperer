@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.HashSet;
 
-public class IncomingIntentActivity extends AppCompatActivity implements WallpaperAddedListener {
+public class IncomingIntentActivity extends AppCompatActivity implements ImageStore.WallpaperAddedListener {
 
     private ImageStore store;
 
@@ -82,7 +82,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         store.removeWallpaperAddedListener(this);
-        if (status != WallpaperAddedListener.SUCCESS){
+        if (status != ImageStore.WallpaperAddedListener.SUCCESS){
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null)?msg:"Unknown error.")
