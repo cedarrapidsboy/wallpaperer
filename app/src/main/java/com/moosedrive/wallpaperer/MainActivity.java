@@ -1,6 +1,7 @@
 package com.moosedrive.wallpaperer;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -9,9 +10,9 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.StatFs;
-import android.provider.DocumentsContract;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -22,6 +23,8 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -46,15 +49,9 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
@@ -62,20 +59,16 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
-    public static final int MINIMUM_REQUIRED_FREE_SPACE = 734003200;
-    public CountDownLatch loadingDoneSignal;
-    public HashSet<String> loadingErrors;
     RecyclerView rv;
     ImageStore images;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
-    boolean isloading = false;
+    final boolean isloading = false;
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
     private SwitchMaterial toggler;
-    private int lastRecordedSize;
     private TimerArc timerArc;
 
     @Override
@@ -85,7 +78,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         context = this;
         images = ImageStore.getInstance();
         images.updateFromPrefs(context);
-        lastRecordedSize = images.size();
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -104,8 +96,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         //The image chooser dialog
         someActivityResultLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
-                new chooserActivityResult(this,
-                        this.getBaseContext()));
+                this);
 
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -123,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         timerArc = findViewById(R.id.timerArc);
         if (PreferenceHelper.isActive(context)) {
             try {
-                if (WorkManager.getInstance(context).getWorkInfosByTag(getString(R.string.work_random_wallpaper_id)).get().size() == 0){
+                if (WorkManager.getInstance(context).getWorkInfosByTag(getString(R.string.work_random_wallpaper_id)).get().size() == 0) {
                     WallpaperWorker.scheduleRandomWallpaper(context);
                 }
             } catch (ExecutionException | InterruptedException e) {
@@ -131,6 +122,13 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             }
             timerArc.start();
         }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    protected void onResume() {
+        super.onResume();
+        adapter.notifyDataSetChanged();
     }
 
     private void runFirstTimeShowcase() {
@@ -267,86 +265,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
     }
 
-    /**
-     * Add wallpapers from list of URI's.
-     * Loading dialog is displayed and progress bar updated as wallpapers are added.
-     *
-     * @param sources the sources
-     */
-    public void addWallpapers(HashSet<Uri> sources) {
-        AppCompatActivity activity = this;
-        boolean recompress = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getResources().getString(R.string.preference_recompress), false);
-        final LoadingDialog loadingDialog = new LoadingDialog(this);
-        loadingErrors = new HashSet<>();
-        if (sources.size() > 0) {
-            isloading = true;
-            loadingDoneSignal = new CountDownLatch(sources.size());
-            loadingDialog.startLoadingDialog(sources.size());
-            for (Uri uri : sources) {
-                Thread t = new Thread(() -> {
-                    File fImageStorageFolder = StorageUtils.getStorageFolder(getBaseContext());
-                    StatFs stats = new StatFs(fImageStorageFolder.getAbsolutePath());
-                    long bytesAvailable = stats.getAvailableBlocksLong() * stats.getBlockSizeLong();
-                    if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs())
-                        Snackbar.make(constraintLayout, getString(R.string.loading_error_cannot_mkdir), Snackbar.LENGTH_LONG)
-                                .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                                .setTextColor(getColor(R.color.white))
-                                .show();
-                    else if (bytesAvailable < MINIMUM_REQUIRED_FREE_SPACE)
-                        loadingErrors.add(getString(R.string.loading_error_precheck_low_space));
-                    else {
-                        String hash = StorageUtils.getHash(context, uri);
-                        if (hash == null)
-                            hash = UUID.randomUUID().toString();
-                        if (images.getImageObject(hash) == null) {
-                            String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
-                            String type = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_MIME_TYPE, context);
-                            if (type.startsWith("image/")) {
-                                try {
-                                    String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
-                                    long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
-                                    Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), uuid + "_" + name, recompress);
-                                    if (recompress) type = "image/jpeg";
-                                    size = StorageUtils.getFileSize(uCopiedFile);
-                                    try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, new Date());
-                                        img.generateThumbnail(context);
-                                        img.setColor(img.getColorFromBitmap(context));
-                                        images.addImageObject(img);
-                                        activity.runOnUiThread(() -> adapter.notifyItemInserted(images.getPosition(img.getId())));
-                                        images.saveToPrefs(getApplicationContext());
-                                    } catch (NoSuchAlgorithmException | IOException e) {
-                                        e.printStackTrace();
-                                    }
-                                } catch (FileNotFoundException e) {
-                                    loadingErrors.add(getString(R.string.loading_error_fnf));
-                                } catch (IOException e) {
-                                    loadingErrors.add(getString(R.string.loading_error_out_of_space));
-                                }
-                            } else {
-                                loadingErrors.add(getString(R.string.loading_error_not_an_image));
-                            }
-                        }
-                    }
-                    loadingDialog.incrementProgressBy(1);
-                    loadingDoneSignal.countDown();
-                });
-                BackgroundExecutor.getExecutor().execute(t);
-            }
-            // UI work that waits for the image loading to complete
-            BackgroundExecutor.getExecutor().execute(() -> {
-                try {
-                    loadingDoneSignal.await();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } finally {
-                    isloading = false;
-                    activity.runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
-                    loadingDialog.dismissDialog();
-                }
-            });
-        }
-    }
+
 
     /**
      * Checks if the storage item for the image exists.
@@ -557,12 +476,6 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 timerArc.stop();
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
-        } else if (!isloading && key.equals("sources")) {
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
-            // Scroll to the newly added images, but don't scroll on delete
-            if (images.size() > lastRecordedSize)
-                runOnUiThread(() -> rv.scrollToPosition(adapter.getItemCount() - 1));
-            lastRecordedSize = images.size();
         }
     }
 
@@ -584,4 +497,59 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     }
 
 
+    @Override
+    public void onWallpaperAdded(ImageObject img) {
+        int pos = images.getPosition(img.getId());
+        runOnUiThread(() -> {
+            adapter.notifyItemInserted(images.size() + 1);
+            rv.scrollToPosition(pos);
+        });
+    }
+    final LoadingDialog loadingDialog = new LoadingDialog(this);
+    @Override
+    public void onWallpaperLoadingStarted(int size) {
+        loadingDialog.startLoadingDialog(size);
+    }
+
+    @Override
+    public void onWallpaperLoadingIncrement(int inc) {
+        loadingDialog.incrementProgressBy(inc);
+    }
+
+    @Override
+    public void onWallpaperLoadingFinished(int status, String msg) {
+        loadingDialog.dismissDialog();
+        images.removeWallpaperAddedListener(this);
+        if (status != WallpaperAddedListener.SUCCESS){
+            new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
+                    .setTitle("Error(s) loading images")
+                    .setMessage((msg != null)?msg:"Unknown error.")
+                    .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
+                    .show());
+        }
+    }
+
+    @Override
+    public void onActivityResult(ActivityResult result) {
+        HashSet<Uri> sources = new HashSet<>();
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            // There are no request codes
+            Intent data = result.getData();
+            StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+            if (data != null) {
+                if (data.getData() != null) {
+                    //Single select
+                    sources.add(data.getData());
+
+                } else if (data.getClipData() != null) {
+                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                        Uri uri = data.getClipData().getItemAt(i).getUri();
+                        sources.add(uri);
+                    }
+                }
+                ImageStore.getInstance().addWallpaperAddedListener(this);
+                ImageStore.getInstance().addWallpapers(this, sources);
+            }
+        }
+    }
 }

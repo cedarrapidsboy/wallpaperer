@@ -4,22 +4,31 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
 import android.preference.PreferenceManager;
+import android.provider.DocumentsContract;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * The type Image store.
  */
 public class ImageStore {
+    public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
+
     private static ImageStore store = null;
     private LinkedHashMap<String, ImageObject> images;
 
@@ -142,11 +151,11 @@ public class ImageStore {
      * @param id the id
      * @return the image object
      */
-    public ImageObject getImageObject(String id) {
+    public synchronized ImageObject getImageObject(String id) {
         return images.get(id);
     }
 
-    public ImageObject getImageObjectByName(String name) {
+    public synchronized ImageObject getImageObjectByName(String name) {
         for (ImageObject img : images.values()) {
             if (img.getName().equals(name))
                 return img;
@@ -160,7 +169,7 @@ public class ImageStore {
      * @param i the
      * @return the image object
      */
-    public ImageObject getImageObject(int i) {
+    public synchronized ImageObject getImageObject(int i) {
         return getImageObjectArray()[i];
     }
 
@@ -169,7 +178,7 @@ public class ImageStore {
      *
      * @return the image object [ ]
      */
-    public ImageObject[] getImageObjectArray() {
+    public synchronized ImageObject[] getImageObjectArray() {
         return images.values().toArray(new ImageObject[0]);
     }
 
@@ -177,7 +186,7 @@ public class ImageStore {
      * @param id Unique ID of the ImageObject
      * @return position in image store, or -1 if not found
      */
-    public int getPosition(String id) {
+    public synchronized int getPosition(String id) {
         String[] keys = images.keySet().toArray(new String[0]);
         int pos = -1;
         for (int i = 0; i < keys.length; i++) {
@@ -199,7 +208,7 @@ public class ImageStore {
      *
      * @return the int
      */
-    public int size() {
+    public synchronized int size() {
         return images.size();
     }
 
@@ -230,6 +239,104 @@ public class ImageStore {
         }
         edit.putString("sources", imageArray.toString());
         edit.apply();
+    }
+
+    private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
+    public CountDownLatch loadingDoneSignal;
+    public HashSet<String> loadingErrors = new HashSet<>();
+
+    public void addWallpaperAddedListener(WallpaperAddedListener wal){
+        wallpaperListeners.add(wal);
+    }
+    public void removeWallpaperAddedListener(WallpaperAddedListener wal){
+        wallpaperListeners.remove(wal);
+    }
+    /**
+     * Add wallpapers from list of URI's.
+     * Loading dialog is displayed and progress bar updated as wallpapers are added.
+     *
+     * @param sources the sources
+     */
+    public void addWallpapers(Context context, HashSet<Uri> sources) {
+        boolean recompress = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_recompress), false);
+        loadingErrors = new HashSet<>();
+        if (sources.size() > 0) {
+            loadingDoneSignal = new CountDownLatch(sources.size());
+            for (WallpaperAddedListener wal : wallpaperListeners)
+                wal.onWallpaperLoadingStarted(sources.size());
+            for (Uri uri : sources) {
+                Thread t = new Thread(() -> {
+                    File fImageStorageFolder = StorageUtils.getStorageFolder(context);
+                    StatFs stats = new StatFs(fImageStorageFolder.getAbsolutePath());
+                    long bytesAvailable = stats.getAvailableBlocksLong() * stats.getBlockSizeLong();
+                    if (!fImageStorageFolder.exists() && !fImageStorageFolder.mkdirs())
+                        loadingErrors.add(context.getString(R.string.loading_error_cannot_mkdir));
+                    else if (bytesAvailable < MINIMUM_REQUIRED_FREE_SPACE)
+                        loadingErrors.add(context.getString(R.string.loading_error_precheck_low_space));
+                    else {
+                        String hash = StorageUtils.getHash(context, uri);
+                        if (hash == null)
+                            hash = UUID.randomUUID().toString();
+                        if (getImageObject(hash) == null) {
+                            String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
+                            String sDate = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context);
+                            Date modDate;
+                            if (sDate == null || Long.parseLong(sDate) == 0)
+                                modDate = new Date();
+                            else
+                                modDate = new Date(Long.parseLong(sDate));
+                            String type = context.getContentResolver().getType(uri);
+                            if (type.startsWith("image/")) {
+                                try {
+                                    String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+                                    long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
+                                    Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), uuid + "_" + name, recompress);
+                                    if (recompress) type = "image/jpeg";
+                                    size = StorageUtils.getFileSize(uCopiedFile);
+                                    try {
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, uuid + "_" + name, size, type, modDate);
+                                        img.generateThumbnail(context);
+                                        img.setColor(img.getColorFromBitmap(context));
+                                        addImageObject(img);
+                                        for (WallpaperAddedListener wal : wallpaperListeners)
+                                            wal.onWallpaperAdded(img);
+                                    } catch (NoSuchAlgorithmException | IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                } catch (FileNotFoundException e) {
+                                    loadingErrors.add(context.getString(R.string.loading_error_fnf));
+                                } catch (IOException e) {
+                                    loadingErrors.add(context.getString(R.string.loading_error_out_of_space));
+                                }
+                            } else {
+                                loadingErrors.add(context.getString(R.string.loading_error_not_an_image));
+                            }
+                        }
+                    }
+                    for (WallpaperAddedListener wal : wallpaperListeners)
+                        wal.onWallpaperLoadingIncrement(1);
+                    loadingDoneSignal.countDown();
+                });
+                BackgroundExecutor.getExecutor().execute(t);
+            }
+            // UI work that waits for the image loading to complete
+            BackgroundExecutor.getExecutor().execute(() -> {
+                try {
+                    loadingDoneSignal.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    saveToPrefs(context.getApplicationContext());
+                    StringBuilder sb = new StringBuilder();
+                    for (String str : loadingErrors) {
+                        sb.append(str);
+                        sb.append(System.getProperty("line.separator"));
+                    }
+                    for (WallpaperAddedListener wal : wallpaperListeners)
+                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0)?WallpaperAddedListener.SUCCESS:WallpaperAddedListener.ERROR,sb.toString());
+                }
+            });
+        }
     }
 
 }

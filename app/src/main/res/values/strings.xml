@@ -61,7 +61,7 @@
     <string name="first_time">first_time</string>
     <string name="loading_error_fnf">Unable to save image. The selected source image has disappeared. Please try again.</string>
     <string name="loading_error_out_of_space">Out of storage space</string>
-    <string name="loading_error_not_an_image">File is not an image.</string>
+    <string name="loading_error_not_an_image">One or more file(s) not an image.</string>
     <string name="loading_error_precheck_low_space">Cannot add file. Storage space is low. Free some space or consider moving this app to external storage.</string>
     <string name="loading_error_cannot_mkdir">Unable to save image. Cannot create storage directory.</string>
     <string name="preference_optimization_title">Battery optimization settings</string>

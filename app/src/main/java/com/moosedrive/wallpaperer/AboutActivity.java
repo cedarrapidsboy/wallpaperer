@@ -20,8 +20,8 @@ public class AboutActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         Element storageElement = new Element();
-        String freeSpace = String.format(Locale.US, "%1.2f", (this.getFilesDir().getFreeSpace() - MainActivity.MINIMUM_REQUIRED_FREE_SPACE) / (1024.0 * 1000000));
-        String totalSpace = String.format(Locale.US, "%1.2f", (this.getFilesDir().getTotalSpace() - MainActivity.MINIMUM_REQUIRED_FREE_SPACE) / (1024.0 * 1000000));
+        String freeSpace = String.format(Locale.US, "%1.2f", (this.getFilesDir().getFreeSpace() - ImageStore.MINIMUM_REQUIRED_FREE_SPACE) / (1024.0 * 1000000));
+        String totalSpace = String.format(Locale.US, "%1.2f", (this.getFilesDir().getTotalSpace() - ImageStore.MINIMUM_REQUIRED_FREE_SPACE) / (1024.0 * 1000000));
         String pattern = getString(R.string.about_storage_details);
         MessageFormat formatter = new MessageFormat(pattern, Locale.US);
 
