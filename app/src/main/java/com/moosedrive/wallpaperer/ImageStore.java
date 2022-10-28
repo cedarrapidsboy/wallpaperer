@@ -45,22 +45,14 @@ public class ImageStore {
     private int sortCriteria = SORT_BY_ADDED;
     private LinkedHashMap<String, ImageObject> referenceImages;
     private final ArrayList<SortedSet<ImageObject>> sortedImages = new ArrayList<>();
+    private final HashSet<Long> uniqueSizes = new HashSet<>();
+    private final HashSet<Long> uniqueTimes = new HashSet<>();
 
     private ImageStore() {
         this.referenceImages = new LinkedHashMap<>();
         sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)));
-        sortedImages.add(new TreeSet<>((o1, o2) -> {
-            if (o1.getDate().equals(o2.getDate()))
-                return 1;
-            else
-                return o1.getDate().compareTo(o2.getDate());
-        }));
-        sortedImages.add(new TreeSet<>((o1, o2) -> {
-            if (o1.getSize() == o2.getSize())
-                return 1;
-            else
-                return Long.compare(o1.getSize(), o2.getSize());
-        }));
+        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getDate)));
+        sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)));
     }
 
     /**
@@ -146,8 +138,6 @@ public class ImageStore {
      * @param position the position Where to place the new object, or -1 to append
      */
     public synchronized void addImageObject(ImageObject img, int position) {
-        int startSize = referenceImages.size();
-        boolean exists = referenceImages.containsKey(img.getId());
         if (referenceImages.size() == 0 || position < 0 || position > (referenceImages.size() - 1)) {
             referenceImages.put(img.getId(), img);
         } else {
@@ -163,11 +153,9 @@ public class ImageStore {
             }
             referenceImages = newImages;
         }
-        int endSize = referenceImages.size();
         //Add the image to each sorted list
         for (SortedSet<ImageObject> imgArray : sortedImages){
-            if (!exists)
-                imgArray.add(img);
+            imgArray.add(img);
         }
     }
 
@@ -324,22 +312,32 @@ public class ImageStore {
                         if (getImageObject(hash) == null) {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
                             String sDate = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context);
-                            Date modDate;
+                            long modDate;
                             if (sDate == null || Long.parseLong(sDate) == 0)
-                                modDate = new Date();
+                                modDate = new Date().getTime();
                             else
-                                modDate = new Date(Long.parseLong(sDate));
+                                modDate = new Date(Long.parseLong(sDate)).getTime();
+                            // Duplicate dates cannot be added to the sorted arrays - add a ms to the date until it is unique in the set
+                            // May cause noticeable (Date) sort inaccuracies in very large libraries
+                            while (uniqueTimes.contains(modDate))
+                                modDate++;
+                            uniqueTimes.add(modDate);
                             String type = context.getContentResolver().getType(uri);
                             if (type.startsWith("image/")) {
                                 try {
                                     String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
                                     String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
+                                    // Duplicate file sizes cannot be added to the sorted arrays - add a byte to the size until it is unique in the set
+                                    // May cause noticeable (Size) sort inaccuracies in very large libraries
+                                    while (uniqueSizes.contains(size))
+                                        size++;
+                                    uniqueSizes.add(size);
                                     Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);
                                     if (recompress) type = "image/webp";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, modDate);
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(modDate));
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         addImageObject(img);

@@ -458,7 +458,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
-                    rv.scrollToPosition(position);
                 });
                 snackbar.addCallback(new Snackbar.Callback() {
                     @Override
