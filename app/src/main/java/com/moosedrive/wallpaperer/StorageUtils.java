@@ -197,7 +197,7 @@ public class StorageUtils {
                     bos = new BufferedOutputStream(new FileOutputStream(destination));
                     // Recompress before writing to new file
                     Bitmap originalBm = BitmapFactory.decodeStream(input);
-                    originalBm.compress(Bitmap.CompressFormat.JPEG, 90, bos);
+                    originalBm.compress(Bitmap.CompressFormat.WEBP, 75, bos);
                     input.close();
                     bos.flush();
                     bos.close();

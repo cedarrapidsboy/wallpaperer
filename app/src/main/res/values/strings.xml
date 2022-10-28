@@ -94,5 +94,10 @@
     <string name="showcase_manage_text">Swipe images to delete them.\nClick images to view them.\nUse the share button to send the image somewhere.\nUse the \"next\" button to set it as wallpaper immediately.</string>
     <string name="set_wallpaper_no_images">Please add an image. Nothing to do.</string>
     <string name="set_wallpaper_missing_image">Image no longer exists. Thumbnail removed.</string>
+    <string name="date_added">Date Added</string>
+    <string name="date_modified">Date Modified</string>
+    <string name="image_name">Image Name</string>
+    <string name="image_size">Image Size</string>
+    <string name="sort">Sort</string>
 
 </resources>

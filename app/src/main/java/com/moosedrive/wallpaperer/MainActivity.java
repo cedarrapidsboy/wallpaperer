@@ -20,6 +20,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -60,10 +61,10 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, ImageStore.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
+public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, ImageStore.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
     RecyclerView rv;
-    ImageStore images;
+    ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
     final boolean isloading = false;
@@ -77,9 +78,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         super.onCreate(savedInstanceState);
         context = this;
-        images = ImageStore.getInstance();
-        images.setSortCriteria(ImageStore.SORT_BY_NAME);
-        images.updateFromPrefs(context);
+        store = ImageStore.getInstance();
+        store.updateFromPrefs(context);
+        store.addSortListener(this);
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -108,7 +109,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         PreferenceManager.getDefaultSharedPreferences(context).registerOnSharedPreferenceChangeListener(this);
         boolean firstTime = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(getString(R.string.first_time), true);
 
-        if (firstTime && images.size() == 0) {
+        if (firstTime && store.size() == 0) {
             runFirstTimeShowcase();
         }
 
@@ -206,13 +207,13 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         adapter.setHasStableIds(true);
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
-        SwipeRefreshLayout swipeLayout = (SwipeRefreshLayout)findViewById(R.id.swiperefresh);
+        SwipeRefreshLayout swipeLayout = findViewById(R.id.swiperefresh);
         swipeLayout.setOnRefreshListener(() -> BackgroundExecutor.getExecutor().execute(() -> {
-            images.updateFromPrefs(getApplicationContext());
-            for (ImageObject obj : images.getImageObjectArray())
+            store.updateFromPrefs(getApplicationContext());
+            for (ImageObject obj : store.getImageObjectArray())
                 if (!StorageUtils.fileExists(obj.getUri()))
-                    images.delImageObject(obj.getId());
-            images.saveToPrefs(getApplicationContext());
+                    store.delImageObject(obj.getId());
+            store.saveToPrefs(getApplicationContext());
             runOnUiThread(() -> adapter.notifyDataSetChanged());
             swipeLayout.setRefreshing(false);
         }));
@@ -231,7 +232,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         //Special handling for switch control (onOptionsItemSelected doesn't work)
         toggler = menu.findItem(R.id.app_bar_switch).getActionView().findViewById(R.id.switch_control);
         toggler.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked && images.size() == 0) {
+            if (isChecked && store.size() == 0) {
                 toggler.setChecked(false);
                 Snackbar
                         .make(constraintLayout, getString(R.string.toast_add_an_image_toggle), Snackbar.LENGTH_LONG)
@@ -245,6 +246,8 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         });
         //Start changing the wallpaper
         initializeWallpaperToggle();
+
+
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -266,11 +269,35 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
             case (R.id.next_wallpaper):
                 View itemView = findViewById(R.id.next_wallpaper);
                 if (itemView != null)
-                    if (images.size() > 0)
+                    if (store.size() > 0)
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper));
                     else
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper_bad));
                 setSingleWallpaper(null);
+                return true;
+            case (R.id.sort):
+                View sortOption = findViewById(R.id.sort);
+                PopupMenu popupMenu = new PopupMenu(context, sortOption);
+                popupMenu.getMenuInflater().inflate(R.menu.sort_menu, popupMenu.getMenu());
+                popupMenu.setOnMenuItemClickListener(menuItem -> {
+                    switch (menuItem.getItemId()) {
+                        case (R.id.original):
+                            store.setSortCriteria(ImageStore.SORT_DEFAULT);
+                            return true;
+                        case (R.id.date):
+                            store.setSortCriteria(ImageStore.SORT_BY_DATE);
+                            return true;
+                        case (R.id.name):
+                            store.setSortCriteria(ImageStore.SORT_BY_NAME);
+                            return true;
+                        case (R.id.size):
+                            store.setSortCriteria(ImageStore.SORT_BY_SIZE);
+                            return true;
+                        default:
+                            return false;
+                    }
+                });
+                popupMenu.show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -287,7 +314,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     public boolean sourceExists(String imageId) {
         boolean exists = false;
-        ImageObject img = images.getImageObject(imageId);
+        ImageObject img = store.getImageObject(imageId);
         if (img != null) {
             Uri uri = img.getUri();
             ParcelFileDescriptor pfd;
@@ -310,14 +337,14 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      * @param imgObjectId the img object id
      */
     public void setSingleWallpaper(String imgObjectId) {
-        if (images.size() == 0) {
+        if (store.size() == 0) {
             Snackbar.make(constraintLayout, R.string.set_wallpaper_no_images, Snackbar.LENGTH_LONG)
                     .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                     .setTextColor(getColor(R.color.white))
                     .show();
         } else {
             if (imgObjectId != null && !sourceExists(imgObjectId)) {
-                adapter.removeItem(images.getPosition(imgObjectId));
+                adapter.removeItem(store.getPosition(imgObjectId));
                 //StorageUtils.releasePersistableUriPermission(getBaseContext(), images.getImageObject(imgObjectId).getUri());
                 Toast.makeText(context,
                         R.string.set_wallpaper_missing_image,
@@ -337,7 +364,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
      */
     @SuppressLint("NotifyDataSetChanged")
     public void deleteAll() {
-        if (images.size() == 0) {
+        if (store.size() == 0) {
             Snackbar.make(constraintLayout, R.string.msg_no_images_to_action, Snackbar.LENGTH_LONG)
                     .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                     .setTextColor(getColor(R.color.white))
@@ -349,11 +376,11 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                     .setPositiveButton(getString(R.string.dialog_button_no), (dialog, which) -> dialog.dismiss())
                     .setNegativeButton(getString(R.string.dialog_button_yes_delete_all), (dialog, which) -> {
                         dialog.dismiss();
-                        images.clear();
+                        store.clear();
                         toggler.setChecked(false);
                         StorageUtils.CleanUpOrphans(getBaseContext().getFilesDir().getPath());
                         adapter.notifyDataSetChanged();
-                        images.saveToPrefs(context);
+                        store.saveToPrefs(context);
                     })
                     .show();
         }
@@ -413,12 +440,12 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 final ImageObject item = adapter.getData().get(position);
                 boolean toggled = false;
                 adapter.removeItem(position);
-                images.delImageObject(item.getId());
-                if (images.size() == 0) {
+                store.delImageObject(item.getId());
+                if (store.size() == 0) {
                     toggler.setChecked(false);
                     toggled = true;
                 }
-                images.saveToPrefs(context);
+                store.saveToPrefs(context);
 
 
                 Snackbar snackbar = Snackbar
@@ -426,7 +453,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
                 final boolean fToggled = toggled;
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
-                    images.addImageObject(item, position);
+                    store.addImageObject(item, position);
                     adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
@@ -457,7 +484,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     @Override
     public void onSetWpClick(int position) {
-        setSingleWallpaper(images.getImageObject(position).getId());
+        setSingleWallpaper(store.getImageObject(position).getId());
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -493,7 +520,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     @Override
     public void onImageClick(int pos, View view) {
-        new StfalconImageViewer.Builder<>(this, images.getImageObjectArray(), (imageView, image) -> Glide
+        new StfalconImageViewer.Builder<>(this, store.getImageObjectArray(), (imageView, image) -> Glide
                 .with(context)
                 .load(image.getUri())
                 .fitCenter()
@@ -511,9 +538,9 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
 
     @Override
     public void onWallpaperAdded(ImageObject img) {
-        int pos = images.getPosition(img.getId());
+        int pos = store.getPosition(img.getId());
         runOnUiThread(() -> {
-            adapter.notifyItemInserted(images.size() + 1);
+            adapter.notifyItemInserted(store.size() + 1);
             rv.scrollToPosition(pos);
         });
     }
@@ -531,7 +558,7 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
-        images.removeWallpaperAddedListener(this);
+        store.removeWallpaperAddedListener(this);
         if (status != ImageStore.WallpaperAddedListener.SUCCESS){
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
@@ -565,4 +592,10 @@ public class MainActivity extends AppCompatActivity implements ItemClickListener
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    public void onImageStoreSortChanged() {
+        runOnUiThread(() -> adapter.notifyDataSetChanged());
+        store.saveToPrefs(this);
+    }
 }

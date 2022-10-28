@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/original"
+        android:title="@string/date_added" />
+    <item
+        android:id="@+id/date"
+        android:title="@string/date_modified" />
+    <item
+        android:id="@+id/name"
+        android:title="@string/image_name" />
+    <item
+        android:id="@+id/size"
+        android:title="@string/image_size" />
+</menu>

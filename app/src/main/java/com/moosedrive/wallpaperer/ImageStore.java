@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -79,9 +78,9 @@ public class ImageStore {
     public synchronized void updateFromPrefs(Context context) {
         ImageStore is = store;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-
             for (int i = 0; i < imageArray.length(); i++) {
                 ParcelFileDescriptor pfd;
                 Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
@@ -274,6 +273,7 @@ public class ImageStore {
             }
         }
         edit.putString("sources", imageArray.toString());
+        edit.putInt("sort",getSortCriteria());
         edit.apply();
     }
 
@@ -326,7 +326,7 @@ public class ImageStore {
                                     String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
                                     Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);
-                                    if (recompress) type = "image/jpeg";
+                                    if (recompress) type = "image/webp";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, modDate);
@@ -372,12 +372,6 @@ public class ImageStore {
                 }
             });
         }
-    }
-
-    public Optional<String> getExtension(String filename) {
-        return Optional.ofNullable(filename)
-                .filter(f -> f.contains("."))
-                .map(f -> f.substring(filename.lastIndexOf(".") + 1));
     }
 
     public int getSortCriteria() {
