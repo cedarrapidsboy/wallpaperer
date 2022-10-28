@@ -506,7 +506,11 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
-            setupRecyclerView();
+            int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
+            int columns = width / RVAdapter.getCardSize(context);
+            rv.setLayoutManager(
+                    new GridLayoutManager(context
+                            , columns > 0 ? columns : 1));
         } else if (key.equals(getResources().getString(R.string.preference_idle))) {
             if (sharedPreferences.getBoolean(key, false)) {
                 if (PreferenceHelper.isActive(this)) {
