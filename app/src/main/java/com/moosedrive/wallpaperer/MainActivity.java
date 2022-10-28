@@ -208,15 +208,30 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         rv.setAdapter(adapter);
         adapter.setClickListener(this);
         SwipeRefreshLayout swipeLayout = findViewById(R.id.swiperefresh);
-        swipeLayout.setOnRefreshListener(() -> BackgroundExecutor.getExecutor().execute(() -> {
-            store.updateFromPrefs(getApplicationContext());
-            for (ImageObject obj : store.getImageObjectArray())
-                if (!StorageUtils.fileExists(obj.getUri()))
-                    store.delImageObject(obj.getId());
-            store.saveToPrefs(getApplicationContext());
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
-            swipeLayout.setRefreshing(false);
-        }));
+
+        swipeLayout.setOnRefreshListener(() -> {
+            //clean up missing images
+            //clear Glide cache
+            //reload from preferences
+            BackgroundExecutor.getExecutor().execute(() -> {
+                runOnUiThread(() -> {
+                    //must be run on main thread
+                    final Glide gInstance = Glide.get(this);
+                    //must be run on background thread
+                    BackgroundExecutor.getExecutor().execute(gInstance::clearDiskCache);
+                    //must be run on main thread
+                    gInstance.clearMemory();
+                });
+                store.updateFromPrefs(getApplicationContext());
+                for (ImageObject obj : store.getImageObjectArray())
+                    if (!StorageUtils.fileExists(obj.getUri()))
+                        store.delImageObject(obj.getId());
+                store.saveToPrefs(getApplicationContext());
+                runOnUiThread(() -> adapter.notifyDataSetChanged());
+                swipeLayout.setRefreshing(false);
+            });
+
+        });
         new FastScrollerBuilder(rv).useMd2Style().build();
         ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
         //Pre-loader loads images into the Glide memory cache while they are still off screen
@@ -535,19 +550,20 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         super.onConfigurationChanged(newConfig);
     }
 
-
+    int lastAddedPosition = -1;
     @Override
     public void onWallpaperAdded(ImageObject img) {
         int pos = store.getPosition(img.getId());
         runOnUiThread(() -> {
             adapter.notifyItemInserted(store.size() + 1);
-            rv.scrollToPosition(pos);
+            lastAddedPosition = pos;
         });
     }
     final LoadingDialog loadingDialog = new LoadingDialog(this);
     @Override
     public void onWallpaperLoadingStarted(int size) {
         loadingDialog.startLoadingDialog(size);
+        lastAddedPosition = -1;
     }
 
     @Override
@@ -566,6 +582,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
+        if (lastAddedPosition > -1)
+            runOnUiThread(() -> rv.scrollToPosition(lastAddedPosition));
     }
 
     @Override

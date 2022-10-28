@@ -172,7 +172,7 @@ public class StorageUtils {
         return null;
     }
 
-    public static Uri saveBitmap(Context context, Uri sourceuri, long size, String destinationDir, String destFileName, boolean recompress) throws IOException {
+    public static Uri saveBitmap(Context context, Uri sourceuri, long maxSizeCompressed, String destinationDir, String destFileName, boolean recompress) throws IOException {
 
         BufferedInputStream bis = null;
         BufferedOutputStream bos = null;
@@ -204,7 +204,7 @@ public class StorageUtils {
                     destinationFile = new File(destination);
                 }
                 // Copy the original if requested, or if the compressed version is bigger
-                if (!recompress || (size > 0 && destinationFile.length() > size)) {
+                if (!recompress || (maxSizeCompressed > 0 && destinationFile.length() > maxSizeCompressed)) {
                     input = context.getContentResolver().openInputStream(sourceuri);
                     bos = new BufferedOutputStream(new FileOutputStream(destination));
                     // Write to new file unchanged

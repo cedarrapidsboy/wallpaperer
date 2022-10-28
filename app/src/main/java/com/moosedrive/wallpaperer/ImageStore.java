@@ -45,14 +45,24 @@ public class ImageStore {
     private int sortCriteria = SORT_BY_ADDED;
     private LinkedHashMap<String, ImageObject> referenceImages;
     private final ArrayList<SortedSet<ImageObject>> sortedImages = new ArrayList<>();
-    private final HashSet<Long> uniqueSizes = new HashSet<>();
-    private final HashSet<Long> uniqueTimes = new HashSet<>();
 
     private ImageStore() {
         this.referenceImages = new LinkedHashMap<>();
-        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)));
-        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getDate)));
-        sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)));
+        //SORT_BY_NAME==0
+        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)
+                .thenComparing(ImageObject::getDate)
+                .thenComparingLong(ImageObject::getSize)
+                .thenComparing(ImageObject::getId)));
+        //SORT_BY_DATE==1
+        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getDate)
+                .thenComparing(ImageObject::getName)
+                .thenComparingLong(ImageObject::getSize)
+                .thenComparing(ImageObject::getId)));
+        //SORT_BY_SIZE==2
+        sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)
+                .thenComparing(ImageObject::getName)
+                .thenComparing(ImageObject::getDate)
+                .thenComparing(ImageObject::getId)));
     }
 
     /**
@@ -312,32 +322,17 @@ public class ImageStore {
                         if (getImageObject(hash) == null) {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
                             String sDate = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context);
-                            long modDate;
-                            if (sDate == null || Long.parseLong(sDate) == 0)
-                                modDate = new Date().getTime();
-                            else
-                                modDate = new Date(Long.parseLong(sDate)).getTime();
-                            // Duplicate dates cannot be added to the sorted arrays - add a ms to the date until it is unique in the set
-                            // May cause noticeable (Date) sort inaccuracies in very large libraries
-                            while (uniqueTimes.contains(modDate))
-                                modDate++;
-                            uniqueTimes.add(modDate);
                             String type = context.getContentResolver().getType(uri);
                             if (type.startsWith("image/")) {
                                 try {
                                     String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
                                     String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
-                                    // Duplicate file sizes cannot be added to the sorted arrays - add a byte to the size until it is unique in the set
-                                    // May cause noticeable (Size) sort inaccuracies in very large libraries
-                                    while (uniqueSizes.contains(size))
-                                        size++;
-                                    uniqueSizes.add(size);
                                     Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);
                                     if (recompress) type = "image/webp";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(modDate));
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(Long.parseLong(sDate)));
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         addImageObject(img);
