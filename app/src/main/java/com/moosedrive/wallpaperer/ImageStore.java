@@ -55,7 +55,12 @@ public class ImageStore {
             else
                 return o1.getDate().compareTo(o2.getDate());
         }));
-        sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)));
+        sortedImages.add(new TreeSet<>((o1, o2) -> {
+            if (o1.getSize() == o2.getSize())
+                return 1;
+            else
+                return Long.compare(o1.getSize(), o2.getSize());
+        }));
     }
 
     /**
@@ -141,6 +146,8 @@ public class ImageStore {
      * @param position the position Where to place the new object, or -1 to append
      */
     public synchronized void addImageObject(ImageObject img, int position) {
+        int startSize = referenceImages.size();
+        boolean exists = referenceImages.containsKey(img.getId());
         if (referenceImages.size() == 0 || position < 0 || position > (referenceImages.size() - 1)) {
             referenceImages.put(img.getId(), img);
         } else {
@@ -150,14 +157,17 @@ public class ImageStore {
             for (String key : oldImages.keySet()) {
                 if (curPos == position)
                     newImages.put(img.getId(), img);
-                newImages.put(key, oldImages.get(key));
+                if (!key.equals(img.getId()))
+                    newImages.put(key, oldImages.get(key));
                 curPos++;
             }
             referenceImages = newImages;
         }
+        int endSize = referenceImages.size();
         //Add the image to each sorted list
         for (SortedSet<ImageObject> imgArray : sortedImages){
-            imgArray.add(img);
+            if (!exists)
+                imgArray.add(img);
         }
     }
 

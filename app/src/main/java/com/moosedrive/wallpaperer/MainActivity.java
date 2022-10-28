@@ -439,8 +439,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 final int position = viewHolder.getAbsoluteAdapterPosition();
                 final ImageObject item = adapter.getData().get(position);
                 boolean toggled = false;
-                adapter.removeItem(position);
                 store.delImageObject(item.getId());
+                adapter.removeItem(position);
                 if (store.size() == 0) {
                     toggler.setChecked(false);
                     toggled = true;
@@ -454,6 +454,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
                     store.addImageObject(item, position);
+                    store.saveToPrefs(context);
                     adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);

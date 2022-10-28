@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ProgressBar;
 
 import androidx.appcompat.app.AlertDialog;
@@ -37,7 +38,6 @@ public class LoadingDialog {
         pb.setMin(0);
         pb.setMax(max);
         pb.setIndeterminate(false);
-
         dialog.show();
     }
 
@@ -50,6 +50,7 @@ public class LoadingDialog {
     // dismiss method
     void dismissDialog() {
         dialog.dismiss();
+
     }
 
 }

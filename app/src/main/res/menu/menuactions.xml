@@ -24,7 +24,7 @@
         android:id="@+id/next_wallpaper"
         android:icon="@drawable/ic_baseline_change_circle_24"
         android:title="@string/next_wallpaper"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
     <item
         android:id="@+id/sort"
         android:icon="@drawable/ic_baseline_sort_24"
