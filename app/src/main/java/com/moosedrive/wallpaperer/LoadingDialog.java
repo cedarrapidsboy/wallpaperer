@@ -34,6 +34,8 @@ public class LoadingDialog {
         builder.setCancelable(true);
         dialog = builder.create();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setCancelable(false);
         pb = alertView.findViewById(R.id.loading_progress);
         pb.setMin(0);
         pb.setMax(max);
