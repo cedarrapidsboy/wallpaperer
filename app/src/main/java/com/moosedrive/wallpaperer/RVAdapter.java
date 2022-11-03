@@ -28,6 +28,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.ListPreloader;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.google.android.material.card.MaterialCardView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -83,6 +84,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
             color = context.getColor(androidx.cardview.R.color.cardview_dark_background);
             BackgroundExecutor.getExecutor().execute(() -> img.setColor(img.getColorFromBitmap(context)));
         }
+        if (store.getLastWallpaperId().equals(img.getId()))
+            holder.cv.setStrokeColor(context.getColor(R.color.gray_400));
+        else
+            holder.cv.setStrokeColor(context.getColor(R.color.transparent));
         holder.ivImage.setBackgroundColor(color);
         String type = img.getType();
         String name = img.getName();
@@ -122,7 +127,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Override
     public void onViewRecycled(@NonNull ImageHolder holder) {
-        Glide.with(context).clear(holder.ivImage);
+        //Glide.with(context).clear(holder.ivImage);
         super.onViewRecycled(holder);
     }
 
@@ -177,10 +182,12 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         final TextView tvSize;
         final Flow flowStats;
         final View ivBlocker;
+        final MaterialCardView cv;
 
 
         ImageHolder(View itemView) {
             super(itemView);
+            cv = (MaterialCardView)itemView;
             flowStats = itemView.findViewById(R.id.card_stats);
             ivImage = itemView.findViewById(R.id.iv_image);
             ivShare = itemView.findViewById(R.id.iv_share);

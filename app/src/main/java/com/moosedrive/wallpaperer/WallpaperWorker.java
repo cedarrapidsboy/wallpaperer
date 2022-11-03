@@ -80,9 +80,11 @@ public class WallpaperWorker extends Worker {
 
         try {
             Uri imgUri = null;
-            if (imgObject != null)
+            if (imgObject != null) {
+                if (store.getPosition(imgObject.getId()) == -1 && store.getLastWallpaperPos() >= store.size())
+                    imgObject = store.getImageObject(0);
                 imgUri = imgObject.getUri();
-            else {
+            } else {
                 if (store.size() > 0) {
                     Random rand = new Random();
                     int nextInt = rand.nextInt(store.size());
@@ -102,6 +104,12 @@ public class WallpaperWorker extends Worker {
                             boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
                             Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
                             WallpaperManager.getInstance(context).setBitmap(bitmap);
+                            store.setLastWallpaperId(imgObject.getId());
+                            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+                            long now = new Date().getTime();
+                            prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
+                            prefEdit.putString(context.getString(R.string.last_wallpaper), imgObject.getId());
+                            prefEdit.apply();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -116,14 +124,20 @@ public class WallpaperWorker extends Worker {
         } catch (CancellationException e) {
             //do nothing
         }
-
-        SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
-        long now = new Date().getTime();
-        prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
-        prefEdit.apply();
         // schedule the next wallpaper change
-        if (PreferenceHelper.isActive(context))
-            scheduleRandomWallpaper(context);
+        if (PreferenceHelper.isActive(context)) {
+            //Get image at current position -- because the active image may have been swiped away
+            //   and we'd want to show the image that fell into its place
+            ImageObject nextImage = store.getImageObject(store.getLastWallpaperPos());
+            //If image at current position is the same as the last displayed image,
+            //   move to the next position
+            if (nextImage != null && nextImage.getId().equals(store.getLastWallpaperId()))
+                nextImage = store.getImageObject(store.getLastWallpaperPos()+1);
+            //If the image at the desired position doesn't exist, return to the beginning
+            if (nextImage == null)
+                nextImage = store.getImageObject(0);
+            scheduleRandomWallpaper(context, false, nextImage.getId());
+        }
         return Result.success();
     }
 

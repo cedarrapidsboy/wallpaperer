@@ -449,8 +449,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         SwipeToDeleteCallback swipeToDeleteCallback = new SwipeToDeleteCallback(this) {
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int i) {
-
-
                 final int position = viewHolder.getAbsoluteAdapterPosition();
                 final ImageObject item = adapter.getData().get(position);
                 boolean toggled = false;
@@ -534,6 +532,9 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 timerArc.stop();
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
+        } else if (key.equals(getString(R.string.last_wallpaper))){
+            store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
+            runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
     }
 

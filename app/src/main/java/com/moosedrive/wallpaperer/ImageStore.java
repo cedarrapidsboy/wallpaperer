@@ -46,6 +46,21 @@ public class ImageStore {
     private LinkedHashMap<String, ImageObject> referenceImages;
     private final ArrayList<SortedSet<ImageObject>> sortedImages = new ArrayList<>();
 
+    public String getLastWallpaperId() {
+        return lastWallpaperId;
+    }
+    public int getLastWallpaperPos() {
+        return lastPos;
+    }
+
+    public void setLastWallpaperId(String lastWallpaperId) {
+        this.lastWallpaperId = lastWallpaperId;
+        this.lastPos = getPosition(lastWallpaperId);
+    }
+
+    private String lastWallpaperId = "";
+    private int lastPos = -1;
+
     private ImageStore() {
         this.referenceImages = new LinkedHashMap<>();
         //SORT_BY_NAME==0
@@ -86,6 +101,7 @@ public class ImageStore {
         ImageStore is = store;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
+        store.setLastWallpaperId(prefs.getString(context.getString(R.string.last_wallpaper), ""));
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
             for (int i = 0; i < imageArray.length(); i++) {
@@ -207,6 +223,8 @@ public class ImageStore {
      * @return the image object
      */
     public synchronized ImageObject getImageObject(int i) {
+        if (i < 0 || i >= getImageObjectArray().length)
+            return null;
         return getImageObjectArray()[i];
     }
 
@@ -241,6 +259,7 @@ public class ImageStore {
      */
     public synchronized void clear() {
         referenceImages.clear();
+        setLastWallpaperId("");
         for (SortedSet<ImageObject> imgArray : sortedImages){
             imgArray.clear();
         }
@@ -282,6 +301,7 @@ public class ImageStore {
         }
         edit.putString("sources", imageArray.toString());
         edit.putInt("sort",getSortCriteria());
+        edit.putString(context.getString(R.string.last_wallpaper), getLastWallpaperId());
         edit.apply();
     }
 
