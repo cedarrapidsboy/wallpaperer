@@ -29,7 +29,7 @@
         android:title="@string/settings" />
 
     <item
-        android:id="@+id/custom"
+        android:id="@+id/shuffle"
         android:icon="@drawable/ic_baseline_shuffle_24"
         android:title="@string/menu_shuffle"
         app:showAsAction="never" />

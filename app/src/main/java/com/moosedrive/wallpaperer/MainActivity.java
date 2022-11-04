@@ -297,7 +297,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper_bad));
                 setSingleWallpaper(null);
                 return true;
-            case (R.id.custom):
+            case (R.id.shuffle):
                 new AlertDialog.Builder(this)
                         .setTitle(getString(R.string.shuffle_confirmation_title))
                         .setMessage(getString(R.string.shuffle_confirmation,getString(R.string.custom)))
