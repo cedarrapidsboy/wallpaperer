@@ -319,6 +319,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 View sortOption = findViewById(R.id.sort);
                 PopupMenu popupMenu = new PopupMenu(context, sortOption);
                 popupMenu.getMenuInflater().inflate(R.menu.sort_menu, popupMenu.getMenu());
+                if (store.getSortCriteria() + 1 < popupMenu.getMenu().size())
+                    popupMenu.getMenu().getItem(store.getSortCriteria() + 1).setChecked(true);
                 popupMenu.setOnMenuItemClickListener(menuItem -> {
                     switch (menuItem.getItemId()) {
                         case (R.id.original):

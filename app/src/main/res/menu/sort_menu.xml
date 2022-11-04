@@ -3,17 +3,22 @@
 
     <item
         android:id="@+id/original"
-        android:title="@string/date_added" />
+        android:title="@string/date_added"
+        android:checkable="true"/>
     <item
         android:id="@+id/date"
-        android:title="@string/date_modified" />
+        android:title="@string/date_modified"
+        android:checkable="true"/>
     <item
         android:id="@+id/name"
-        android:title="@string/image_name" />
+        android:title="@string/image_name"
+        android:checkable="true"/>
     <item
         android:id="@+id/size"
-        android:title="@string/image_size" />
+        android:title="@string/image_size"
+        android:checkable="true"/>
     <item
         android:id="@+id/custom"
-        android:title="@string/custom" />
+        android:title="@string/custom"
+        android:checkable="true"/>
 </menu>
