@@ -191,26 +191,29 @@ public class ImageStore {
     /**
      * Add image object.
      *
-     * @param img      the img
+     * @param imgTry      the img
      * @param position the position Where to place the new object, or -1 to append
      */
-    public synchronized void addImageObject(ImageObject img, int position) {
+    public synchronized void addImageObject(ImageObject imgTry, int position) {
+        ImageObject img = imgTry;
         if (referenceImages.size() == 0 || position < 0 || position > (referenceImages.size() - 1)) {
-            referenceImages.put(img.getId(), img);
+            img = referenceImages.put(img.getId(), img);
         } else {
             int curPos = 0;
             LinkedHashMap<String, ImageObject> oldImages = referenceImages;
             LinkedHashMap<String, ImageObject> newImages = new LinkedHashMap<>();
             for (String key : oldImages.keySet()) {
                 if (curPos == position)
-                    newImages.put(img.getId(), img);
-                if (!key.equals(img.getId()))
+                    img = newImages.put(imgTry.getId(), imgTry);
+                if (!key.equals(imgTry.getId()))
                     newImages.put(key, oldImages.get(key));
                 curPos++;
             }
             referenceImages = newImages;
         }
         //Add the image to each sorted list
+        if (img == null)
+            img = imgTry;
         for (Collection<ImageObject> imgArray : sortedImages){
             if (imgArray instanceof Set)
                 imgArray.add(img);

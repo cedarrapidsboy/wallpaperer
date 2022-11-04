@@ -84,7 +84,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         super.onCreate(savedInstanceState);
         context = this;
         store = ImageStore.getInstance();
-        store.updateFromPrefs(context);
+        if (store.size() == 0)
+            store.updateFromPrefs(context);
         store.addSortListener(this);
 
         setContentView(R.layout.activity_main);
@@ -521,6 +522,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             int fromPosition = viewHolder.getBindingAdapterPosition();
                             int toPosition = target.getBindingAdapterPosition();
                             store.moveImage(store.getImageObject(fromPosition), toPosition);
+                            store.setLastWallpaperPos(toPosition);
+                            store.saveToPrefs(context);
                             runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
                             return true;
                         } else
