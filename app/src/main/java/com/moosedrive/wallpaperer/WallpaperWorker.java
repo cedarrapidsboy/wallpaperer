@@ -88,7 +88,7 @@ public class WallpaperWorker extends Worker {
                     pos--;
                 }
                 pos++;
-                if (pos >= store.size()) {
+                if (pos >= store.size() || pos < 0) {
                     pos = 0;
                 }
                 imgObject = store.getImageObject(pos);
