@@ -53,12 +53,18 @@ public class ImageStore {
         return lastPos;
     }
 
-    public void setLastWallpaperId(String lastWallpaperId) {
+    public void setLastWallpaperId(String lastWallpaperId, boolean force) {
         this.lastWallpaperId = lastWallpaperId;
-        this.lastPos = getPosition(lastWallpaperId);
+        if (force || !lastWallpaperId.equals(""))
+            this.lastPos = getPosition(lastWallpaperId);
     }
 
     private String lastWallpaperId = "";
+
+    public void setLastWallpaperPos(int lastPos) {
+        this.lastPos = lastPos;
+    }
+
     private int lastPos = -1;
 
     private ImageStore() {
@@ -101,7 +107,8 @@ public class ImageStore {
         ImageStore is = store;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
-        store.setLastWallpaperId(prefs.getString(context.getString(R.string.last_wallpaper), ""));
+        store.lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
+        store.lastPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
             for (int i = 0; i < imageArray.length(); i++) {
@@ -184,7 +191,7 @@ public class ImageStore {
             imgArray.add(img);
         }
         //Reset the last wallpaper position since a new one was added and may have bumped it
-        setLastWallpaperId(getLastWallpaperId());
+        setLastWallpaperId(getLastWallpaperId(), false);
     }
 
     /**
@@ -198,11 +205,12 @@ public class ImageStore {
         for (SortedSet<ImageObject> imgArray : sortedImages){
             imgArray.remove(deadImgWalking);
         }
-        if (store.getImageObject(store.getLastWallpaperId()) != null) {
-            //Reset the last wallpaper position to the next place
-            store.setLastWallpaperId(store.getLastWallpaperId());
-        } else
+        if (deadImgWalking != null && store.getLastWallpaperId().equals(deadImgWalking.getId())) {
             lastWallpaperId = "";
+        } else {
+            //Reset the last wallpaper position to the repositioned place
+            store.setLastWallpaperId(store.getLastWallpaperId(), false);
+        }
     }
 
     /**
@@ -266,7 +274,7 @@ public class ImageStore {
      */
     public synchronized void clear() {
         referenceImages.clear();
-        setLastWallpaperId("");
+        setLastWallpaperId("", false);
         for (SortedSet<ImageObject> imgArray : sortedImages){
             imgArray.clear();
         }
@@ -309,6 +317,7 @@ public class ImageStore {
         edit.putString("sources", imageArray.toString());
         edit.putInt("sort",getSortCriteria());
         edit.putString(context.getString(R.string.last_wallpaper), getLastWallpaperId());
+        edit.putInt(context.getString(R.string.last_wallpaper_pos), getLastWallpaperPos());
         edit.apply();
     }
 
@@ -414,7 +423,7 @@ public class ImageStore {
             sl.onImageStoreSortChanged();
         if (!lastWallpaperId.equals("")) {
             //Update the position of the last wallpaper
-            setLastWallpaperId(lastWallpaperId);
+            setLastWallpaperId(lastWallpaperId, false);
         }
     }
 

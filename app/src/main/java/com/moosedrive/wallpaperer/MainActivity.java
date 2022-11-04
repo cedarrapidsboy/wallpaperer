@@ -533,7 +533,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
         } else if (key.equals(getString(R.string.last_wallpaper))){
-            store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
+            store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""), false);
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
     }

@@ -100,5 +100,6 @@
     <string name="image_size">Image Size</string>
     <string name="sort">Sort</string>
     <string name="last_wallpaper">last_wallpaper</string>
+    <string name="last_wallpaper_pos">last_wallpaper_pos</string>
 
 </resources>

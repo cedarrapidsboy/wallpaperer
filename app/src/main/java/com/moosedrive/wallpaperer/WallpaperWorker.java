@@ -24,7 +24,6 @@ import androidx.work.WorkerParameters;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 
@@ -79,10 +78,10 @@ public class WallpaperWorker extends Worker {
         int width = compatWidth; //(wm.getDesiredMinimumWidth() > 0) ? wm.getDesiredMinimumWidth() : compatWidth;
 
         try {
-            Uri imgUri = null;
+            Uri imgUri;
             if (imgObject == null) {
                 int pos = store.getLastWallpaperPos();
-                if (store.getLastWallpaperId() == null) {
+                if (store.getLastWallpaperId().equals("")) {
                     //Image wasn't found at its expected position.
                     //Back-up the pointer so whatever slid into place
                     //will be the next paper
@@ -107,7 +106,7 @@ public class WallpaperWorker extends Worker {
                             boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
                             Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
                             WallpaperManager.getInstance(context).setBitmap(bitmap);
-                            store.setLastWallpaperId(imgObject.getId());
+                            store.setLastWallpaperId(imgObject.getId(), false);
                             SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
                             long now = new Date().getTime();
                             prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
