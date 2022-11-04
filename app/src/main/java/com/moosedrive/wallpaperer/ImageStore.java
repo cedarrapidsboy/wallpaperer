@@ -183,6 +183,8 @@ public class ImageStore {
         for (SortedSet<ImageObject> imgArray : sortedImages){
             imgArray.add(img);
         }
+        //Reset the last wallpaper position since a new one was added and may have bumped it
+        setLastWallpaperId(getLastWallpaperId());
     }
 
     /**
@@ -196,6 +198,11 @@ public class ImageStore {
         for (SortedSet<ImageObject> imgArray : sortedImages){
             imgArray.remove(deadImgWalking);
         }
+        if (store.getImageObject(store.getLastWallpaperId()) != null) {
+            //Reset the last wallpaper position to the next place
+            store.setLastWallpaperId(store.getLastWallpaperId());
+        } else
+            lastWallpaperId = "";
     }
 
     /**
@@ -405,6 +412,10 @@ public class ImageStore {
         this.sortCriteria = sortCriteria;
         for (ImageStoreSortListener sl : sortListeners)
             sl.onImageStoreSortChanged();
+        if (!lastWallpaperId.equals("")) {
+            //Update the position of the last wallpaper
+            setLastWallpaperId(lastWallpaperId);
+        }
     }
 
     public void addSortListener(ImageStoreSortListener sl) {

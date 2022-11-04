@@ -80,19 +80,22 @@ public class WallpaperWorker extends Worker {
 
         try {
             Uri imgUri = null;
-            if (imgObject != null) {
-                if (store.getPosition(imgObject.getId()) == -1 && store.getLastWallpaperPos() >= store.size())
-                    imgObject = store.getImageObject(0);
-                imgUri = imgObject.getUri();
-            } else {
-                if (store.size() > 0) {
-                    Random rand = new Random();
-                    int nextInt = rand.nextInt(store.size());
-                    imgObject = store.getImageObject(nextInt);
-                    imgUri = imgObject.getUri();
+            if (imgObject == null) {
+                int pos = store.getLastWallpaperPos();
+                if (store.getLastWallpaperId() == null) {
+                    //Image wasn't found at its expected position.
+                    //Back-up the pointer so whatever slid into place
+                    //will be the next paper
+                    pos--;
                 }
+                pos++;
+                if (pos >= store.size()) {
+                    pos = 0;
+                }
+                imgObject = store.getImageObject(pos);
             }
-            if (imgUri != null) {
+            if (imgObject != null) {
+                imgUri = imgObject.getUri();
                 try {
                     ParcelFileDescriptor pfd = context.
                             getContentResolver().
@@ -126,17 +129,7 @@ public class WallpaperWorker extends Worker {
         }
         // schedule the next wallpaper change
         if (PreferenceHelper.isActive(context)) {
-            //Get image at current position -- because the active image may have been swiped away
-            //   and we'd want to show the image that fell into its place
-            ImageObject nextImage = store.getImageObject(store.getLastWallpaperPos());
-            //If image at current position is the same as the last displayed image,
-            //   move to the next position
-            if (nextImage != null && nextImage.getId().equals(store.getLastWallpaperId()))
-                nextImage = store.getImageObject(store.getLastWallpaperPos()+1);
-            //If the image at the desired position doesn't exist, return to the beginning
-            if (nextImage == null)
-                nextImage = store.getImageObject(0);
-            scheduleRandomWallpaper(context, false, nextImage.getId());
+            scheduleRandomWallpaper(context, false, null);
         }
         return Result.success();
     }
