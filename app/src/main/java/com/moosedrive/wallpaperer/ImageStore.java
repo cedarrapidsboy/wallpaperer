@@ -419,8 +419,9 @@ public class ImageStore {
 
     public void setSortCriteria(int sortCriteria) {
         this.sortCriteria = sortCriteria;
-        for (ImageStoreSortListener sl : sortListeners)
+        for (ImageStoreSortListener sl : sortListeners) {
             sl.onImageStoreSortChanged();
+        }
         if (!lastWallpaperId.equals("")) {
             //Update the position of the last wallpaper
             setLastWallpaperId(lastWallpaperId, false);

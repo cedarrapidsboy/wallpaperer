@@ -267,6 +267,13 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     @Override
+    protected void onDestroy() {
+        store.removeSortListener(this);
+        PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
+        super.onDestroy();
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         Intent intent;
         switch (item.getItemId()) {
@@ -298,19 +305,21 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     switch (menuItem.getItemId()) {
                         case (R.id.original):
                             store.setSortCriteria(ImageStore.SORT_DEFAULT);
-                            return true;
+                            break;
                         case (R.id.date):
                             store.setSortCriteria(ImageStore.SORT_BY_DATE);
-                            return true;
+                            break;
                         case (R.id.name):
                             store.setSortCriteria(ImageStore.SORT_BY_NAME);
-                            return true;
+                            break;
                         case (R.id.size):
                             store.setSortCriteria(ImageStore.SORT_BY_SIZE);
-                            return true;
+                            break;
                         default:
                             return false;
                     }
+                    store.saveToPrefs(context);
+                    return true;
                 });
                 popupMenu.show();
                 return true;
@@ -618,7 +627,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onImageStoreSortChanged() {
-        runOnUiThread(() -> adapter.notifyDataSetChanged());
-        store.saveToPrefs(this);
+        if (adapter != null)
+            runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 }
