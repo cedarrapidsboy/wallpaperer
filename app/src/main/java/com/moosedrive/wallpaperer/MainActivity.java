@@ -309,8 +309,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         })
                         .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
                             store.shuffleImages();
-                            store.saveToPrefs(context);
                             store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                            store.saveToPrefs(context);
                             dialog.dismiss();
                             setResult(Activity.RESULT_OK);
                         }).show();
