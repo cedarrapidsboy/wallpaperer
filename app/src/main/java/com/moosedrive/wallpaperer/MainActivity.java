@@ -1,5 +1,7 @@
 package com.moosedrive.wallpaperer;
 
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -7,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -63,11 +66,13 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
  */
 public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, ImageStore.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
+    final boolean isloading = false;
+    final LoadingDialog loadingDialog = new LoadingDialog(this);
     RecyclerView rv;
     ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
-    final boolean isloading = false;
+    int lastAddedPosition = -1;
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
     private SwitchMaterial toggler;
@@ -191,7 +196,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
     }
 
-
     @SuppressLint("NotifyDataSetChanged")
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
@@ -238,7 +242,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
         rv.addOnScrollListener(preloader);
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -300,7 +303,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             case (R.id.shuffle):
                 new AlertDialog.Builder(this)
                         .setTitle(getString(R.string.shuffle_confirmation_title))
-                        .setMessage(getString(R.string.shuffle_confirmation,getString(R.string.custom)))
+                        .setMessage(getString(R.string.shuffle_confirmation, getString(R.string.custom)))
                         .setCancelable(false)
                         .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
                             dialog.dismiss();
@@ -350,8 +353,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 return super.onOptionsItemSelected(item);
         }
     }
-
-
 
     /**
      * Checks if the storage item for the image exists.
@@ -478,52 +479,98 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     private void enableSwipeToDeleteAndUndo() {
-        SwipeToDeleteCallback swipeToDeleteCallback = new SwipeToDeleteCallback(this) {
-            @Override
-            public void onSwiped(RecyclerView.ViewHolder viewHolder, int i) {
-                final int position = viewHolder.getAbsoluteAdapterPosition();
-                final ImageObject item = adapter.getData().get(position);
-                boolean toggled = false;
-                store.delImageObject(item.getId());
-                adapter.removeItem(position);
-                if (store.size() == 0) {
-                    toggler.setChecked(false);
-                    toggled = true;
-                }
-                store.saveToPrefs(context);
-
-
-                Snackbar snackbar = Snackbar
-                        .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
-                final boolean fToggled = toggled;
-                snackbar.setAction(getString(R.string.snack_action_undo), view -> {
-
-                    store.addImageObject(item, position);
-                    store.saveToPrefs(context);
-                    adapter.notifyItemInserted(position);
-                    if (fToggled)
-                        toggler.setChecked(true);
-                });
-                snackbar.addCallback(new Snackbar.Callback() {
+        ItemTouchHelper.SimpleCallback simpleCallback =
+                new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP
+                        | ItemTouchHelper.DOWN
+                        | ItemTouchHelper.LEFT
+                        | ItemTouchHelper.RIGHT
+                        | ItemTouchHelper.START
+                        | ItemTouchHelper.END, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+                    boolean drag = false;
+                    View draggedView;
                     @Override
-                    public void onDismissed(Snackbar snackbar, int event) {
-                        if (event != Snackbar.Callback.DISMISS_EVENT_ACTION) {
-                            StorageUtils.cleanUpImage(context.getFilesDir().getAbsolutePath(), item);
-                        }
+                    public void onSelectedChanged(RecyclerView.ViewHolder viewHolder, int actionState) {
+                        super.onSelectedChanged(viewHolder, actionState);
 
+                        if(actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                            drag = true;
+                            draggedView = viewHolder.itemView;
+                            ObjectAnimator scaleUp = ObjectAnimator.ofPropertyValuesHolder(
+                                    viewHolder.itemView,
+                                    PropertyValuesHolder.ofFloat("scaleX", 1.10f),
+                                    PropertyValuesHolder.ofFloat("scaleY", 1.10f)
+                            );
+                            scaleUp.setDuration(100);
+                            scaleUp.start();
+                        }
+                        if(actionState == ItemTouchHelper.ACTION_STATE_IDLE && drag && draggedView != null) {
+                            ObjectAnimator scaleDown = ObjectAnimator.ofPropertyValuesHolder(
+                                    draggedView,
+                                    PropertyValuesHolder.ofFloat("scaleX", 1f),
+                                    PropertyValuesHolder.ofFloat("scaleY", 1f)
+                            );
+                            scaleDown.setDuration(100);
+                            scaleDown.start();
+                            drag= false;
+                        }
                     }
 
-                });
+                    @Override
+                    public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                        if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
+                            int fromPosition = viewHolder.getBindingAdapterPosition();
+                            int toPosition = target.getBindingAdapterPosition();
+                            store.moveImage(store.getImageObject(fromPosition), toPosition);
+                            runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
+                            return true;
+                        } else
+                            return false;
+                    }
 
-                snackbar.setActionTextColor(Color.YELLOW)
-                        .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                        .setTextColor(getColor(R.color.white))
-                        .show();
+                    @Override
+                    public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                        final int position = viewHolder.getAbsoluteAdapterPosition();
+                        final ImageObject item = adapter.getData().get(position);
+                        boolean toggled = false;
+                        store.delImageObject(item.getId());
+                        adapter.removeItem(position);
+                        if (store.size() == 0) {
+                            toggler.setChecked(false);
+                            toggled = true;
+                        }
+                        store.saveToPrefs(context);
 
-            }
-        };
+                        Snackbar snackbar = Snackbar
+                                .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
+                        final boolean fToggled = toggled;
+                        snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
-        ItemTouchHelper itemTouchhelper = new ItemTouchHelper(swipeToDeleteCallback);
+                            store.addImageObject(item, position);
+                            store.saveToPrefs(context);
+                            adapter.notifyItemInserted(position);
+                            if (fToggled)
+                                toggler.setChecked(true);
+                        });
+                        snackbar.addCallback(new Snackbar.Callback() {
+                            @Override
+                            public void onDismissed(Snackbar snackbar, int event) {
+                                if (event != Snackbar.Callback.DISMISS_EVENT_ACTION) {
+                                    StorageUtils.cleanUpImage(context.getFilesDir().getAbsolutePath(), item);
+                                }
+
+                            }
+
+                        });
+
+                        snackbar.setActionTextColor(Color.YELLOW)
+                                .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
+                                .setTextColor(getColor(R.color.white))
+                                .show();
+
+                    }
+                };
+
+        ItemTouchHelper itemTouchhelper = new ItemTouchHelper(simpleCallback);
         itemTouchhelper.attachToRecyclerView(rv);
     }
 
@@ -564,7 +611,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 timerArc.stop();
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
-        } else if (key.equals(getString(R.string.last_wallpaper))){
+        } else if (key.equals(getString(R.string.last_wallpaper))) {
             store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""), false);
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
@@ -587,7 +634,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         super.onConfigurationChanged(newConfig);
     }
 
-    int lastAddedPosition = -1;
     @Override
     public void onWallpaperAdded(ImageObject img) {
         int pos = store.getPosition(img.getId());
@@ -596,7 +642,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             lastAddedPosition = pos;
         });
     }
-    final LoadingDialog loadingDialog = new LoadingDialog(this);
+
     @Override
     public void onWallpaperLoadingStarted(int size) {
         loadingDialog.startLoadingDialog(size);
@@ -612,10 +658,10 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         store.removeWallpaperAddedListener(this);
-        if (status != ImageStore.WallpaperAddedListener.SUCCESS){
+        if (status != ImageStore.WallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
-                    .setMessage((msg != null)?msg:"Unknown error.")
+                    .setMessage((msg != null) ? msg : "Unknown error.")
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
