@@ -297,6 +297,24 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper_bad));
                 setSingleWallpaper(null);
                 return true;
+            case (R.id.custom):
+                new AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.shuffle_confirmation_title))
+                        .setMessage(getString(R.string.shuffle_confirmation,getString(R.string.custom)))
+                        .setCancelable(false)
+                        .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
+                            dialog.dismiss();
+                            setResult(Activity.RESULT_CANCELED);
+                            finishAfterTransition();
+                        })
+                        .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
+                            store.shuffleImages();
+                            store.saveToPrefs(context);
+                            store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                            dialog.dismiss();
+                            setResult(Activity.RESULT_OK);
+                        }).show();
+                return true;
             case (R.id.sort):
                 View sortOption = findViewById(R.id.sort);
                 PopupMenu popupMenu = new PopupMenu(context, sortOption);
@@ -314,6 +332,9 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             break;
                         case (R.id.size):
                             store.setSortCriteria(ImageStore.SORT_BY_SIZE);
+                            break;
+                        case (R.id.custom):
+                            store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                             break;
                         default:
                             return false;

@@ -13,4 +13,7 @@
     <item
         android:id="@+id/size"
         android:title="@string/image_size" />
+    <item
+        android:id="@+id/custom"
+        android:title="@string/custom" />
 </menu>

@@ -101,5 +101,9 @@
     <string name="sort">Sort</string>
     <string name="last_wallpaper">last_wallpaper</string>
     <string name="last_wallpaper_pos">last_wallpaper_pos</string>
+    <string name="custom">Custom</string>
+    <string name="menu_shuffle">Shuffle</string>
+    <string name="shuffle_confirmation">Are you sure you want the shuffle the images? This will affect the %1$s image list. The view will be switched to the %1$s image list.</string>
+    <string name="shuffle_confirmation_title">Shuffle images?</string>
 
 </resources>

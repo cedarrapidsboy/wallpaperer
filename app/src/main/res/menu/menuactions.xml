@@ -30,4 +30,9 @@
         android:icon="@drawable/ic_baseline_sort_24"
         android:title="@string/sort"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/custom"
+        android:icon="@drawable/ic_baseline_shuffle_24"
+        android:title="@string/menu_shuffle"
+        app:showAsAction="never" />
 </menu>
