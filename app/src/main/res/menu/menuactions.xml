@@ -33,8 +33,7 @@
         android:icon="@drawable/ic_baseline_shuffle_24"
         android:title="@string/menu_shuffle"
         app:showAsAction="never" />
-    <group
-        android:id="@+id/about_group">
+    <group>
     <item
         android:id="@+id/menu_about"
         android:title="@string/about" />

@@ -17,17 +17,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -218,7 +214,7 @@ public class ImageStore {
             if (imgArray instanceof Set)
                 imgArray.add(img);
             else if (imgArray instanceof LinkedList) {
-                if (!((LinkedList<?>)imgArray).contains(img)) {
+                if (!imgArray.contains(img)) {
                     if (customPosition < 0 || customPosition > (referenceImages.size() - 1))
                         imgArray.add(img);
                     else
@@ -489,14 +485,12 @@ public class ImageStore {
         }
     }
 
-    public boolean moveImage(ImageObject object, int newPos){
+    public void moveImage(ImageObject object, int newPos){
         LinkedList<ImageObject> sortedSet = (LinkedList<ImageObject>) sortedImages.get(SORT_BY_CUSTOM);
         if (sortedSet.contains(object)){
             sortedSet.remove(object);
             sortedSet.add(newPos, object);
-            return true;
         }
-        return false;
     }
 
     public void addSortListener(ImageStoreSortListener sl) {

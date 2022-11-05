@@ -607,7 +607,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             itemMoveHelper = new ItemTouchHelper(simpleCallback);
         if (itemSwipeHelper == null)
             itemSwipeHelper = new ItemTouchHelper(swipeToDeleteCallback);
-
+        itemMoveHelper.attachToRecyclerView(null);
         itemSwipeHelper.attachToRecyclerView(rv);
         if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM)
             itemMoveHelper.attachToRecyclerView(rv);

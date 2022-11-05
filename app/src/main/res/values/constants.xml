@@ -3,9 +3,4 @@
     <!-- Two values for thumbnail display. Could not figure out how to use a fraction in code as a float.
          The values are used to generate thumbnails that are x% the largest screen dimension -->
     <fraction name="thumbnail_ratio" type="float">0.33</fraction>
-    <string name="thumbnail_ratio">0.33</string>
-    <dimen name="touch_target_height">48dp</dimen>
-    <dimen name="card_size">256dp</dimen>
-    <integer name="cache_size">16384</integer>
-    <integer name="cache_quality">90</integer>
 </resources>

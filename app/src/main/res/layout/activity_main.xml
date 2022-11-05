@@ -5,7 +5,6 @@
     android:id="@+id/constraint_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#00FFFFFF"
     android:foregroundTint="#00FFFFFF"
     android:outlineAmbientShadowColor="#00FFFFFF"
     android:outlineSpotShadowColor="#00FFFFFF"
