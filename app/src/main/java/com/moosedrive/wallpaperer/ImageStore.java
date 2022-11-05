@@ -42,33 +42,14 @@ public class ImageStore {
     public static final int SORT_DEFAULT = SORT_BY_ADDED;
     private static ImageStore store = null;
     private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
+    private final Set<ImageStoreSortListener> sortListeners = new HashSet<>();
+    private final ArrayList<Collection<ImageObject>> sortedImages = new ArrayList<>();
     public CountDownLatch loadingDoneSignal;
     public HashSet<String> loadingErrors = new HashSet<>();
-    private final Set<ImageStoreSortListener> sortListeners = new HashSet<>();
     private int sortCriteria = SORT_BY_ADDED;
     private LinkedHashMap<String, ImageObject> referenceImages;
-    private final ArrayList<Collection<ImageObject>> sortedImages = new ArrayList<>();
-
-    public String getLastWallpaperId() {
-        return lastWallpaperId;
-    }
-    public int getLastWallpaperPos() {
-        return lastPos;
-    }
-
-    public void setLastWallpaperId(String lastWallpaperId, boolean force) {
-        this.lastWallpaperId = lastWallpaperId;
-        if (force || !lastWallpaperId.equals(""))
-            this.lastPos = getPosition(lastWallpaperId);
-    }
-
     private String lastWallpaperId = "";
-
-    public void setLastWallpaperPos(int lastPos) {
-        this.lastPos = lastPos;
-    }
-
-    private int lastPos = -1;
+    private int lastWallpaperPos = -1;
 
     private ImageStore() {
         this.referenceImages = new LinkedHashMap<>();
@@ -91,10 +72,6 @@ public class ImageStore {
         sortedImages.add(new LinkedList<>());
     }
 
-    public void shuffleImages(){
-        Collections.shuffle((LinkedList<?>)sortedImages.get(SORT_BY_CUSTOM));
-    }
-
     /**
      * Gets instance.
      *
@@ -107,6 +84,63 @@ public class ImageStore {
         return store;
     }
 
+    public String getLastWallpaperId() {
+        return lastWallpaperId;
+    }
+
+    public int getLastWallpaperPos() {
+        return lastWallpaperPos;
+    }
+
+    public void setLastWallpaperPos(int lastPos) {
+        this.lastWallpaperPos = lastPos;
+    }
+
+    public void setLastWallpaperId(String lastWallpaperId, boolean force) {
+        this.lastWallpaperId = lastWallpaperId;
+        if (force || !lastWallpaperId.equals(""))
+            this.lastWallpaperPos = getPosition(lastWallpaperId);
+    }
+
+    public void shuffleImages(){
+        Collections.shuffle((LinkedList<?>)sortedImages.get(SORT_BY_CUSTOM));
+    }
+
+    /**
+     * Save to prefs.
+     *
+     * @param context the context
+     */
+    public synchronized void saveToPrefs(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        JSONArray imageArray = new JSONArray();
+        for (ImageObject io : referenceImages.values().toArray(new ImageObject[0])) {
+            try {
+                JSONObject imageJson = new JSONObject();
+                imageJson.put("uri", io.getUri().toString());
+                imageJson.put("id", io.getId());
+                imageJson.put("name", io.getName());
+                imageJson.put("size", io.getSize());
+                imageJson.put("type", io.getType());
+                imageJson.put("date", io.getDate().getTime());
+                imageJson.put("color", io.getColor());
+                imageArray.put(imageJson);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        edit.putString("sources", imageArray.toString());
+        JSONArray customIds = new JSONArray();
+        for (ImageObject io : sortedImages.get(SORT_BY_CUSTOM).toArray(new ImageObject[0]))
+            customIds.put(io.getId());
+        edit.putString("custom", customIds.toString());
+        edit.putInt("sort",getSortCriteria());
+        edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
+        edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
+        edit.apply();
+    }
+
     /**
      * Load from prefs image store. This will clear the current ImageStore.
      *
@@ -115,9 +149,6 @@ public class ImageStore {
     public synchronized void updateFromPrefs(Context context) {
         ImageStore is = store;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
-        store.lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
-        store.lastPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
             for (int i = 0; i < imageArray.length(); i++) {
@@ -155,6 +186,9 @@ public class ImageStore {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+        store.lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
+        store.lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
+        store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
     }
 
     /**
@@ -342,41 +376,6 @@ public class ImageStore {
         return referenceImages.size();
     }
 
-    /**
-     * Save to prefs.
-     *
-     * @param context the context
-     */
-//long size, String type, Date date
-    public synchronized void saveToPrefs(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        SharedPreferences.Editor edit = prefs.edit();
-        JSONArray imageArray = new JSONArray();
-        for (ImageObject io : referenceImages.values().toArray(new ImageObject[0])) {
-            try {
-                JSONObject imageJson = new JSONObject();
-                imageJson.put("uri", io.getUri().toString());
-                imageJson.put("id", io.getId());
-                imageJson.put("name", io.getName());
-                imageJson.put("size", io.getSize());
-                imageJson.put("type", io.getType());
-                imageJson.put("date", io.getDate().getTime());
-                imageJson.put("color", io.getColor());
-                imageArray.put(imageJson);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-        edit.putString("sources", imageArray.toString());
-        JSONArray customIds = new JSONArray();
-        for (ImageObject io : sortedImages.get(SORT_BY_CUSTOM).toArray(new ImageObject[0]))
-            customIds.put(io.getId());
-        edit.putString("custom", customIds.toString());
-        edit.putInt("sort",getSortCriteria());
-        edit.putString(context.getString(R.string.last_wallpaper), getLastWallpaperId());
-        edit.putInt(context.getString(R.string.last_wallpaper_pos), getLastWallpaperPos());
-        edit.apply();
-    }
 
     public void addWallpaperAddedListener(WallpaperAddedListener wal) {
         wallpaperListeners.add(wal);
