@@ -43,7 +43,7 @@ abstract public class SwipeToDeleteCallback extends ItemTouchHelper.Callback {
 
     @Override
     public int getMovementFlags(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
-        return makeMovementFlags(0, ItemTouchHelper.LEFT);
+        return makeMovementFlags(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT);
     }
 
     @Override
@@ -67,7 +67,7 @@ abstract public class SwipeToDeleteCallback extends ItemTouchHelper.Callback {
         }
 
         mBackground.setColor(backgroundColor);
-        mBackground.setBounds(itemView.getRight() + (int) dX, itemView.getTop(), itemView.getRight(), itemView.getBottom());
+        mBackground.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getRight(), itemView.getBottom());
         mBackground.draw(c);
 
         int deleteIconTop = itemView.getTop() + (itemHeight - intrinsicHeight) / 2;

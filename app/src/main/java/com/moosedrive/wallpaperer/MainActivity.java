@@ -9,7 +9,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -77,6 +76,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
+    private ItemTouchHelper itemMoveHelper;
+    private ItemTouchHelper itemSwipeHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -274,6 +275,10 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     protected void onDestroy() {
         store.removeSortListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
+        if (itemMoveHelper != null)
+            itemMoveHelper.attachToRecyclerView(null);
+        if (itemSwipeHelper != null)
+            itemSwipeHelper.attachToRecyclerView(null);
         super.onDestroy();
     }
 
@@ -347,6 +352,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             return false;
                     }
                     store.saveToPrefs(context);
+                    //Change drag behaviour based on selected sort list
+                    enableSwipeToDeleteAndUndo();
                     return true;
                 });
                 popupMenu.show();
@@ -481,13 +488,59 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     private void enableSwipeToDeleteAndUndo() {
+        SwipeToDeleteCallback swipeToDeleteCallback = new SwipeToDeleteCallback(this) {
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                final int position = viewHolder.getAbsoluteAdapterPosition();
+                final ImageObject item = adapter.getData().get(position);
+                final int refPos = store.getReferencePosition(item.getId());
+                final int custPos = store.getCustomPosition(item.getId());
+                boolean toggled = false;
+                store.delImageObject(item.getId());
+                adapter.removeItem(position);
+                if (store.size() == 0) {
+                    toggler.setChecked(false);
+                    toggled = true;
+                }
+                store.saveToPrefs(context);
+
+                Snackbar snackbar = Snackbar
+                        .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
+                final boolean fToggled = toggled;
+                snackbar.setAction(getString(R.string.snack_action_undo), view -> {
+
+                    store.addImageObject(item, refPos, custPos);
+                    store.saveToPrefs(context);
+                    adapter.notifyItemInserted(position);
+                    if (fToggled)
+                        toggler.setChecked(true);
+                });
+                snackbar.addCallback(new Snackbar.Callback() {
+                    @Override
+                    public void onDismissed(Snackbar snackbar, int event) {
+                        if (event != Snackbar.Callback.DISMISS_EVENT_ACTION) {
+                            StorageUtils.cleanUpImage(context.getFilesDir().getAbsolutePath(), item);
+                        }
+
+                    }
+
+                });
+
+                snackbar.setActionTextColor(Color.YELLOW)
+                        .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
+                        .setTextColor(getColor(R.color.white))
+                        .show();
+
+            }
+        };
+
         ItemTouchHelper.SimpleCallback simpleCallback =
                 new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP
                         | ItemTouchHelper.DOWN
                         | ItemTouchHelper.LEFT
                         | ItemTouchHelper.RIGHT
                         | ItemTouchHelper.START
-                        | ItemTouchHelper.END, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+                        | ItemTouchHelper.END, 0) {
                     boolean drag = false;
                     View draggedView;
                     @Override
@@ -497,23 +550,36 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         if(actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
                             drag = true;
                             draggedView = viewHolder.itemView;
-                            ObjectAnimator scaleUp = ObjectAnimator.ofPropertyValuesHolder(
-                                    viewHolder.itemView,
-                                    PropertyValuesHolder.ofFloat("scaleX", 1.10f),
-                                    PropertyValuesHolder.ofFloat("scaleY", 1.10f)
-                            );
-                            scaleUp.setDuration(100);
-                            scaleUp.start();
+                            //scaleView(viewHolder.itemView, 1.10f);
+                            scaleOthers( draggedView, 0.9f);
                         }
                         if(actionState == ItemTouchHelper.ACTION_STATE_IDLE && drag && draggedView != null) {
-                            ObjectAnimator scaleDown = ObjectAnimator.ofPropertyValuesHolder(
-                                    draggedView,
-                                    PropertyValuesHolder.ofFloat("scaleX", 1f),
-                                    PropertyValuesHolder.ofFloat("scaleY", 1f)
-                            );
-                            scaleDown.setDuration(100);
-                            scaleDown.start();
+                            //scaleView(draggedView, 1f);
+                            scaleOthers( draggedView, 1f);
                             drag= false;
+                        }
+                    }
+
+                    private void scaleView(@NonNull View viewHolder, float x) {
+                        ObjectAnimator scaleUp = ObjectAnimator.ofPropertyValuesHolder(
+                                viewHolder,
+                                PropertyValuesHolder.ofFloat("scaleX", x),
+                                PropertyValuesHolder.ofFloat("scaleY", x)
+                        );
+                        scaleUp.setDuration(100);
+                        scaleUp.start();
+                    }
+
+                    private void scaleOthers(View excludeView, float scale) {
+                        int otherCards = rv.getChildCount();
+                        for (int i = 0; i < otherCards; i++){
+                            View otherCard = rv.getChildAt(i);
+                            if (otherCard != null && otherCard != excludeView){
+                                RecyclerView.ViewHolder vHolder = rv.getChildViewHolder(otherCard);
+                                if (vHolder != null){
+                                    scaleView(vHolder.itemView, scale);
+                                }
+                            }
                         }
                     }
 
@@ -533,51 +599,18 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
                     @Override
                     public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                        final int position = viewHolder.getAbsoluteAdapterPosition();
-                        final ImageObject item = adapter.getData().get(position);
-                        final int refPos = store.getReferencePosition(item.getId());
-                        final int custPos = store.getCustomPosition(item.getId());
-                        boolean toggled = false;
-                        store.delImageObject(item.getId());
-                        adapter.removeItem(position);
-                        if (store.size() == 0) {
-                            toggler.setChecked(false);
-                            toggled = true;
-                        }
-                        store.saveToPrefs(context);
-
-                        Snackbar snackbar = Snackbar
-                                .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
-                        final boolean fToggled = toggled;
-                        snackbar.setAction(getString(R.string.snack_action_undo), view -> {
-
-                            store.addImageObject(item, refPos, custPos);
-                            store.saveToPrefs(context);
-                            adapter.notifyItemInserted(position);
-                            if (fToggled)
-                                toggler.setChecked(true);
-                        });
-                        snackbar.addCallback(new Snackbar.Callback() {
-                            @Override
-                            public void onDismissed(Snackbar snackbar, int event) {
-                                if (event != Snackbar.Callback.DISMISS_EVENT_ACTION) {
-                                    StorageUtils.cleanUpImage(context.getFilesDir().getAbsolutePath(), item);
-                                }
-
-                            }
-
-                        });
-
-                        snackbar.setActionTextColor(Color.YELLOW)
-                                .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                                .setTextColor(getColor(R.color.white))
-                                .show();
 
                     }
                 };
 
-        ItemTouchHelper itemTouchhelper = new ItemTouchHelper(simpleCallback);
-        itemTouchhelper.attachToRecyclerView(rv);
+        if (itemMoveHelper == null)
+            itemMoveHelper = new ItemTouchHelper(simpleCallback);
+        if (itemSwipeHelper == null)
+            itemSwipeHelper = new ItemTouchHelper(swipeToDeleteCallback);
+
+        itemSwipeHelper.attachToRecyclerView(rv);
+        if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM)
+            itemMoveHelper.attachToRecyclerView(rv);
     }
 
     @Override
