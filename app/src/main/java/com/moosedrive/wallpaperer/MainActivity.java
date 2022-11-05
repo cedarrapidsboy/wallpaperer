@@ -534,6 +534,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                         final int position = viewHolder.getAbsoluteAdapterPosition();
                         final ImageObject item = adapter.getData().get(position);
+                        final int refPos = store.getReferencePosition(item.getId());
+                        final int custPos = store.getCustomPosition(item.getId());
                         boolean toggled = false;
                         store.delImageObject(item.getId());
                         adapter.removeItem(position);
@@ -548,7 +550,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         final boolean fToggled = toggled;
                         snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
-                            store.addImageObject(item, position);
+                            store.addImageObject(item, refPos, custPos);
                             store.saveToPrefs(context);
                             adapter.notifyItemInserted(position);
                             if (fToggled)

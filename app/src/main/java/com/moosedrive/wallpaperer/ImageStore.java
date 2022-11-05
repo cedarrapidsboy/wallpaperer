@@ -185,25 +185,25 @@ public class ImageStore {
      * @param img the img
      */
     public synchronized void addImageObject(ImageObject img) {
-        addImageObject(img, -1);
+        addImageObject(img, -1, -1);
     }
 
     /**
      * Add image object.
      *
      * @param imgTry      the img
-     * @param position the position Where to place the new object, or -1 to append
+     * @param refPosition the position Where to place the new object, or -1 to append
      */
-    public synchronized void addImageObject(ImageObject imgTry, int position) {
+    public synchronized void addImageObject(ImageObject imgTry, int refPosition, int customPosition) {
         ImageObject img = imgTry;
-        if (referenceImages.size() == 0 || position < 0 || position > (referenceImages.size() - 1)) {
+        if (referenceImages.size() == 0 || refPosition < 0 || refPosition > (referenceImages.size() - 1)) {
             img = referenceImages.put(img.getId(), img);
         } else {
             int curPos = 0;
             LinkedHashMap<String, ImageObject> oldImages = referenceImages;
             LinkedHashMap<String, ImageObject> newImages = new LinkedHashMap<>();
             for (String key : oldImages.keySet()) {
-                if (curPos == position)
+                if (curPos == refPosition)
                     img = newImages.put(imgTry.getId(), imgTry);
                 if (!key.equals(imgTry.getId()))
                     newImages.put(key, oldImages.get(key));
@@ -217,9 +217,13 @@ public class ImageStore {
         for (Collection<ImageObject> imgArray : sortedImages){
             if (imgArray instanceof Set)
                 imgArray.add(img);
-            else if (imgArray instanceof List) {
-                if (!((List<?>)imgArray).contains(img))
-                    imgArray.add(img);
+            else if (imgArray instanceof LinkedList) {
+                if (!((LinkedList<?>)imgArray).contains(img)) {
+                    if (customPosition < 0 || customPosition > (referenceImages.size() - 1))
+                        imgArray.add(img);
+                    else
+                        ((LinkedList<ImageObject>)imgArray).add(customPosition,img);
+                }
             }
 
         }
@@ -294,6 +298,26 @@ public class ImageStore {
      */
     public synchronized int getPosition(String id) {
         ImageObject[] objs = getImageObjectArray();
+        int pos = -1;
+        for (int i = 0; i < objs.length; i++) {
+            if (objs[i].getId().equals(id))
+                pos = i;
+        }
+        return pos;
+    }
+
+    public synchronized int getReferencePosition(String id) {
+        ImageObject[] objs = referenceImages.values().toArray(new ImageObject[0]);
+        int pos = -1;
+        for (int i = 0; i < objs.length; i++) {
+            if (objs[i].getId().equals(id))
+                pos = i;
+        }
+        return pos;
+    }
+
+    public synchronized int getCustomPosition(String id) {
+        ImageObject[] objs = sortedImages.get(SORT_BY_CUSTOM).toArray(new ImageObject[0]);
         int pos = -1;
         for (int i = 0; i < objs.length; i++) {
             if (objs[i].getId().equals(id))
