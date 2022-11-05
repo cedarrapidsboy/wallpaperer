@@ -102,8 +102,17 @@ public class ImageStore {
             this.lastWallpaperPos = getPosition(lastWallpaperId);
     }
 
+    /**
+     * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
+     */
     public void shuffleImages(){
         Collections.shuffle((LinkedList<?>)sortedImages.get(SORT_BY_CUSTOM));
+        //Always bring the last active wallpaper to the top
+        if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
+            int newPos = ((LinkedList<?>) sortedImages.get(SORT_BY_CUSTOM)).indexOf(store.getImageObject(lastWallpaperId));
+            Collections.swap((LinkedList<?>) sortedImages.get(SORT_BY_CUSTOM), 0, newPos);
+            lastWallpaperPos = 0;
+        }
     }
 
     /**

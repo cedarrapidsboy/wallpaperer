@@ -318,14 +318,13 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
                             dialog.dismiss();
                             setResult(Activity.RESULT_CANCELED);
-                            finishAfterTransition();
                         })
-                        .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
+                        .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
                             store.shuffleImages();
                             store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
-                            store.setLastWallpaperId("", true);
                             store.saveToPrefs(context);
                             dialog.dismiss();
+                            runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
                             setResult(Activity.RESULT_OK);
                         }).show();
                 return true;
@@ -437,8 +436,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             new AlertDialog.Builder(context)
                     .setTitle(getString(R.string.dialog_title_delete_all))
                     .setMessage(getString(R.string.dialog_msg_delete_all))
-                    .setPositiveButton(getString(R.string.dialog_button_no), (dialog, which) -> dialog.dismiss())
-                    .setNegativeButton(getString(R.string.dialog_button_yes_delete_all), (dialog, which) -> {
+                    .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> dialog.dismiss())
+                    .setPositiveButton(getString(R.string.dialog_button_yes_delete_all), (dialog, which) -> {
                         dialog.dismiss();
                         store.clear();
                         toggler.setChecked(false);

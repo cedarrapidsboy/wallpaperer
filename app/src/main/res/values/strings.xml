@@ -96,5 +96,6 @@
     <string name="shuffle_confirmation">Are you sure you want the shuffle the images? This will affect the %1$s image list. The view will be switched to the %1$s image list.</string>
     <string name="shuffle_confirmation_title">Shuffle images?</string>
     <string name="go_to_current">Go to current</string>
+    <string name="dialog_button_shuffle_yes">Yes, shuffle them</string>
 
 </resources>
