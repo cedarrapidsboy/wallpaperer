@@ -52,7 +52,6 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
                         })
                         .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
                             dialog.dismiss();
-                            //TODO Is this working the same as MainActivity?
                             store.addWallpaperAddedListener(this);
                             store.addWallpapers(this, setUris);
                             setResult(Activity.RESULT_OK);
@@ -68,7 +67,9 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
     public void onWallpaperAdded(ImageObject img) {
 
     }
+
     final LoadingDialog loadingDialog = new LoadingDialog(this);
+
     @Override
     public void onWallpaperLoadingStarted(int size) {
         loadingDialog.startLoadingDialog(size);
@@ -83,11 +84,14 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         store.removeWallpaperAddedListener(this);
-        if (status != ImageStore.WallpaperAddedListener.SUCCESS){
+        if (status != ImageStore.WallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
-                    .setMessage((msg != null)?msg:"Unknown error.")
-                    .setPositiveButton("Got it", (dialog2, which2) -> {dialog2.dismiss();finishAfterTransition();})
+                    .setMessage((msg != null) ? msg : "Unknown error.")
+                    .setPositiveButton("Got it", (dialog2, which2) -> {
+                        dialog2.dismiss();
+                        finishAfterTransition();
+                    })
                     .show());
         } else {
             finishAfterTransition();
