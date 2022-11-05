@@ -20,10 +20,9 @@
         android:title="@string/sort"
         app:showAsAction="always" />
     <item
-        android:id="@+id/remove_all"
-        android:icon="@drawable/ic_baseline_delete_forever_24"
-        android:title="@string/remove_all"
-        app:showAsAction="never" />
+        android:id="@+id/menu_goto"
+        android:title="@string/go_to_current"
+        android:visible="false"/>
     <item
         android:id="@+id/menu_settings"
         android:title="@string/settings" />
@@ -32,6 +31,11 @@
         android:id="@+id/shuffle"
         android:icon="@drawable/ic_baseline_shuffle_24"
         android:title="@string/menu_shuffle"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/remove_all"
+        android:icon="@drawable/ic_baseline_delete_forever_24"
+        android:title="@string/remove_all"
         app:showAsAction="never" />
     <group>
     <item

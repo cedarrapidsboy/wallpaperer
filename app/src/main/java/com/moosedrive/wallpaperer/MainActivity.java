@@ -246,6 +246,12 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.menu_goto).setVisible(!store.getLastWallpaperId().equals(""));
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menuactions, menu);
@@ -266,8 +272,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         });
         //Start changing the wallpaper
         initializeWallpaperToggle();
-
-
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -357,6 +361,9 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     return true;
                 });
                 popupMenu.show();
+                return true;
+            case (R.id.menu_goto):
+                runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -496,6 +503,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 final int refPos = store.getReferencePosition(item.getId());
                 final int custPos = store.getCustomPosition(item.getId());
                 boolean toggled = false;
+                boolean wasActiveWallpaper = store.getLastWallpaperId().equals(item.getId());
                 store.delImageObject(item.getId());
                 adapter.removeItem(position);
                 if (store.size() == 0) {
@@ -503,17 +511,21 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     toggled = true;
                 }
                 store.saveToPrefs(context);
-
+                invalidateOptionsMenu();
                 Snackbar snackbar = Snackbar
                         .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
                 final boolean fToggled = toggled;
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
                     store.addImageObject(item, refPos, custPos);
+                    if (wasActiveWallpaper) {
+                        store.setLastWallpaperId(item.getId(), true);
+                    }
                     store.saveToPrefs(context);
                     adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
+                    invalidateOptionsMenu();
                 });
                 snackbar.addCallback(new Snackbar.Callback() {
                     @Override
@@ -615,6 +627,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
     @Override
     public void onSetWpClick(int position) {
+        invalidateOptionsMenu();
         setSingleWallpaper(store.getImageObject(position).getId());
     }
 
@@ -652,6 +665,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             }
         } else if (key.equals(getString(R.string.last_wallpaper))) {
             store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""), false);
+            invalidateOptionsMenu();
             runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
     }
@@ -697,6 +711,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         store.removeWallpaperAddedListener(this);
+        invalidateOptionsMenu();
         if (status != ImageStore.WallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
