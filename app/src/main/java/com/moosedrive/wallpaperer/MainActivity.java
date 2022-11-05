@@ -312,6 +312,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             finishAfterTransition();
                         })
                         .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
+                            //TODO Is wallpaper position being set to -1?
                             store.shuffleImages();
                             store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                             store.saveToPrefs(context);

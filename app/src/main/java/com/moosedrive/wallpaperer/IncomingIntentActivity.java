@@ -52,6 +52,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
                         })
                         .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
                             dialog.dismiss();
+                            //TODO Is this working the same as MainActivity?
                             store.addWallpaperAddedListener(this);
                             store.addWallpapers(this, setUris);
                             setResult(Activity.RESULT_OK);
