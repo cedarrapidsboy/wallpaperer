@@ -23,7 +23,8 @@ public class ImageObject {
     private final Uri uri;
     private final long size;
     private final String type;
-    private final Date date;
+    private final Date addedDate;
+    private final Date creationDate;
     private boolean isGenerating;
     private Uri thumbUri;
 
@@ -50,17 +51,18 @@ public class ImageObject {
      * @param fileName the file name
      * @param size     the size
      * @param type     the type
-     * @param date     the date
+     * @param addedDate     the date
      * @throws NoSuchAlgorithmException the no such algorithm exception
      * @throws IOException              the io exception
      */
-    public ImageObject(Uri uri, String id, String fileName, long size, String type, Date date) throws NoSuchAlgorithmException, IOException {
+    public ImageObject(Uri uri, String id, String fileName, long size, String type, Date addedDate, Date creationDate) throws NoSuchAlgorithmException, IOException {
         this.uri = uri;
         this.id = id;
         name = fileName;
         this.size = size;
         this.type = type;
-        this.date = date;
+        this.addedDate = addedDate;
+        this.creationDate = creationDate;
         this.thumbUri = null;
         this.isGenerating = false;
         this.color = -1;
@@ -135,8 +137,8 @@ public class ImageObject {
      *
      * @return the date
      */
-    public Date getDate() {
-        return date;
+    public Date getAddedDate() {
+        return addedDate;
     }
 
     /**
@@ -155,5 +157,9 @@ public class ImageObject {
         }
         Palette p = Palette.from(bm).generate();
         return p.getDarkMutedColor(context.getColor(androidx.cardview.R.color.cardview_dark_background));
+    }
+
+    public Date getCreationDate() {
+        return creationDate;
     }
 }

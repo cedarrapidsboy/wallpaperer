@@ -356,6 +356,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     }
                     //Change drag behaviour based on selected sort list
                     enableSwipeToDeleteAndUndo();
+                    runOnUiThread(() -> adapter.notifyDataSetChanged());
                     return true;
                 });
                 popupMenu.show();

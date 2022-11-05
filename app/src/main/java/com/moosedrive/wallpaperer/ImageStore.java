@@ -15,6 +15,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,18 +58,18 @@ public class ImageStore {
         this.referenceImages = new LinkedHashMap<>();
         //SORT_BY_NAME==0
         sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)
-                .thenComparing(ImageObject::getDate)
+                .thenComparing(ImageObject::getAddedDate)
                 .thenComparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getId)));
         //SORT_BY_DATE==1
-        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getDate)
+        sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getCreationDate)
                 .thenComparing(ImageObject::getName)
                 .thenComparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getId)));
         //SORT_BY_SIZE==2
         sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getName)
-                .thenComparing(ImageObject::getDate)
+                .thenComparing(ImageObject::getAddedDate)
                 .thenComparing(ImageObject::getId)));
         //SORT_BY_CUSTOM==3
         sortedImages.add(new LinkedList<>());
@@ -132,7 +135,7 @@ public class ImageStore {
                 imageJson.put("name", io.getName());
                 imageJson.put("size", io.getSize());
                 imageJson.put("type", io.getType());
-                imageJson.put("date", io.getDate().getTime());
+                imageJson.put("date", io.getAddedDate().getTime());
                 imageJson.put("color", io.getColor());
                 imageArray.put(imageJson);
             } catch (JSONException e) {
@@ -207,13 +210,13 @@ public class ImageStore {
      * @param filename the filename
      * @param size     the size
      * @param type     the type
-     * @param date     the date
+     * @param creationDate     the date
      * @throws NoSuchAlgorithmException the no such algorithm exception
      * @throws IOException              the io exception
      */
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized ImageObject addImageObject(Uri uri, String id, String filename, long size, String type, Date date) throws NoSuchAlgorithmException, IOException {
-        ImageObject img = new ImageObject(uri, id, filename, size, type, date);
+    public synchronized ImageObject addImageObject(Uri uri, String id, String filename, long size, String type, Date creationDate) throws NoSuchAlgorithmException, IOException {
+        ImageObject img = new ImageObject(uri, id, filename, size, type, new Date(), creationDate);
         addImageObject(img);
         return img;
     }
@@ -424,6 +427,13 @@ public class ImageStore {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
                             String sDate = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context);
                             String type = context.getContentResolver().getType(uri);
+                            long creationDate = Long.parseLong(sDate);
+                            try {
+                                BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
+                                creationDate = attribs.creationTime().toMillis();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                             if (type.startsWith("image/")) {
                                 try {
                                     String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
@@ -433,7 +443,7 @@ public class ImageStore {
                                     if (recompress) type = "image/webp";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(Long.parseLong(sDate)));
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(), new Date(creationDate));
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         addImageObject(img);

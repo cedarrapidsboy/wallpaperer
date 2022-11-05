@@ -91,7 +91,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         holder.ivImage.setBackgroundColor(color);
         String type = img.getType();
         String name = img.getName();
-        Date date = img.getDate();
+        Date date = img.getCreationDate();
         boolean showStats = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_card_stats), false);
         holder.tvFileName.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
         holder.flowStats.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
