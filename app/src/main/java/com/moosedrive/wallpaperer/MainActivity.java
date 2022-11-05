@@ -228,12 +228,12 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     //must be run on main thread
                     gInstance.clearMemory();
                 });
-                store.updateFromPrefs(getApplicationContext());
                 for (ImageObject obj : store.getImageObjectArray())
                     if (!StorageUtils.fileExists(obj.getUri()))
                         store.delImageObject(obj.getId());
-                store.saveToPrefs(getApplicationContext());
                 runOnUiThread(() -> adapter.notifyDataSetChanged());
+                //Save aftr refresh -- otherwise data will be saved onPause()
+                store.saveToPrefs(context);
                 swipeLayout.setRefreshing(false);
             });
 
@@ -276,14 +276,15 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onPause() {
         store.removeSortListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
         if (itemMoveHelper != null)
             itemMoveHelper.attachToRecyclerView(null);
         if (itemSwipeHelper != null)
             itemSwipeHelper.attachToRecyclerView(null);
-        super.onDestroy();
+        store.saveToPrefs(context);
+        super.onPause();
     }
 
     @Override
@@ -322,7 +323,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
                             store.shuffleImages();
                             store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
-                            store.saveToPrefs(context);
                             dialog.dismiss();
                             runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
                             setResult(Activity.RESULT_OK);
@@ -354,7 +354,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         default:
                             return false;
                     }
-                    store.saveToPrefs(context);
                     //Change drag behaviour based on selected sort list
                     enableSwipeToDeleteAndUndo();
                     return true;
@@ -443,7 +442,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         toggler.setChecked(false);
                         StorageUtils.CleanUpOrphans(getBaseContext().getFilesDir().getPath());
                         adapter.notifyDataSetChanged();
-                        store.saveToPrefs(context);
                     })
                     .show();
         }
@@ -509,7 +507,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     toggler.setChecked(false);
                     toggled = true;
                 }
-                store.saveToPrefs(context);
                 invalidateOptionsMenu();
                 Snackbar snackbar = Snackbar
                         .make(constraintLayout, getString(R.string.msg_swipe_item_removed), Snackbar.LENGTH_LONG);
@@ -520,7 +517,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     if (wasActiveWallpaper) {
                         store.setLastWallpaperId(item.getId(), true);
                     }
-                    store.saveToPrefs(context);
                     adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
@@ -601,7 +597,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             int toPosition = target.getBindingAdapterPosition();
                             store.moveImage(store.getImageObject(fromPosition), toPosition);
                             store.setLastWallpaperPos(toPosition);
-                            store.saveToPrefs(context);
                             runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
                             return true;
                         } else

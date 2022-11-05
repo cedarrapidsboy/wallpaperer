@@ -111,7 +111,6 @@ public class WallpaperWorker extends Worker {
                             long now = new Date().getTime();
                             prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
                             prefEdit.apply();
-                            store.saveToPrefs(context);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -120,6 +119,8 @@ public class WallpaperWorker extends Worker {
                     store.delImageObject(imgObject.getId());
                     //StorageUtils.releasePersistableUriPermission(context, imgObject.getUri());
                     e.printStackTrace();
+                } finally {
+                    store.saveToPrefs(context);
                 }
             }
         } catch (CancellationException e) {

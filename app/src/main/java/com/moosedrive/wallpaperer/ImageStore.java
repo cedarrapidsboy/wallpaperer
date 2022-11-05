@@ -465,7 +465,6 @@ public class ImageStore {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } finally {
-                    saveToPrefs(context.getApplicationContext());
                     StringBuilder sb = new StringBuilder();
                     for (String str : loadingErrors) {
                         sb.append(str);
