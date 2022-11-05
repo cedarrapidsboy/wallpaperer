@@ -215,7 +215,6 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
                 ivSetWp.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_change_wallpaper));
             }
             if (clickListener != null && view == ivImage) {
-                //TODO Fullscreen view
                 clickListener.onImageClick(getAbsoluteAdapterPosition(), view);
             }
             if (clickListener != null && view == ivShare) {
