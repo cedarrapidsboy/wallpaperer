@@ -1,33 +1,39 @@
 package com.moosedrive.wallpaperer;
 
+
+import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ProgressBar;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
 
+@SuppressWarnings("deprecation")
+public class ProgressDialogFragment extends DialogFragment {
 
-public class LoadingDialog {
-    // 2 objects activity and dialog
-    private final AppCompatActivity activity;
-    private AlertDialog dialog;
-    private ProgressBar pb = null;
-
-    public LoadingDialog(AppCompatActivity activity) {
-        this.activity = activity;
+    public static ProgressDialogFragment newInstance(int max) {
+        Bundle args = new Bundle();
+        args.putInt("max", max);
+        ProgressDialogFragment f = new ProgressDialogFragment();
+        f.setArguments(args);
+        return f;
     }
 
-
-    void startLoadingDialog(int max) {
-
+    AlertDialog dialog;
+    ProgressBar pb;
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(Bundle savedInstanceState) {
+        setRetainInstance(true);
         // adding ALERT Dialog builder object and passing activity as parameter
-        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
         // layoutinflater object and use activity to get layout inflater
-        LayoutInflater inflater = activity.getLayoutInflater();
+        LayoutInflater inflater = getLayoutInflater();
         View alertView = inflater.inflate(R.layout.loading, null);
         builder.setView(alertView);
         builder.setCancelable(true);
@@ -37,21 +43,14 @@ public class LoadingDialog {
         dialog.setCancelable(false);
         pb = alertView.findViewById(R.id.loading_progress);
         pb.setMin(0);
-        pb.setMax(max);
+        assert getArguments() != null;
+        pb.setMax(getArguments().getInt("max"));
         pb.setIndeterminate(false);
-        dialog.show();
+        return dialog;
     }
-
     public void incrementProgressBy(int num) {
         if (pb != null) {
             pb.incrementProgressBy(num);
         }
     }
-
-    // dismiss method
-    void dismissDialog() {
-        dialog.dismiss();
-
-    }
-
 }

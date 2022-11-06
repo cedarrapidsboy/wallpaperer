@@ -69,7 +69,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, ImageStore.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
     final boolean isloading = false;
-    final LoadingDialog loadingDialog = new LoadingDialog(this);
+    private ProgressDialogFragment loadingDialog;
     RecyclerView rv;
     ImageStore store;
     RVAdapter adapter;
@@ -81,9 +81,10 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     private TimerArc timerArc;
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
-
+    Bundle instanceState;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        this.instanceState = savedInstanceState;
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         super.onCreate(savedInstanceState);
         context = this;
@@ -716,7 +717,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
     @Override
     public void onWallpaperLoadingStarted(int size) {
-        loadingDialog.startLoadingDialog(size);
+        loadingDialog = ProgressDialogFragment.newInstance(size);
+        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");
         lastAddedPosition = -1;
     }
 
@@ -727,7 +729,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
-        loadingDialog.dismissDialog();
+        loadingDialog.dismiss();
         store.removeWallpaperAddedListener(this);
         store.saveToPrefs(context);
         invalidateOptionsMenu();

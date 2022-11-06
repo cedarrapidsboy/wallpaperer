@@ -386,7 +386,7 @@ public class ImageStore {
      *
      * @param sources the sources
      */
-    public void addWallpapers(Context context, HashSet<Uri> sources) {
+    public synchronized void addWallpapers(Context context, HashSet<Uri> sources) {
         boolean recompress = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_recompress), false);
         loadingErrors = new HashSet<>();
         if (sources.size() > 0) {

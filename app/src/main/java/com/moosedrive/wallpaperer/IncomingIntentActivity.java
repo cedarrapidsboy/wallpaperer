@@ -18,11 +18,11 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
         store = ImageStore.getInstance();
         store.updateFromPrefs(getApplicationContext());
         setContentView(R.layout.activity_incoming_intent);
         processIncomingIntentsAndExit();
+        super.onCreate(savedInstanceState);
     }
 
     private void processIncomingIntentsAndExit() {
@@ -68,11 +68,12 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
 
     }
 
-    final LoadingDialog loadingDialog = new LoadingDialog(this);
+    ProgressDialogFragment loadingDialog;
 
     @Override
     public void onWallpaperLoadingStarted(int size) {
-        loadingDialog.startLoadingDialog(size);
+        loadingDialog = ProgressDialogFragment.newInstance(size);
+        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");
     }
 
     @Override
@@ -82,7 +83,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements ImageSt
 
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
-        loadingDialog.dismissDialog();
+        loadingDialog.dismiss();
         store.removeWallpaperAddedListener(this);
         if (status != ImageStore.WallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
