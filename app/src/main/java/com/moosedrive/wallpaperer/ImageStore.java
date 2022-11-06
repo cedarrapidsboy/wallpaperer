@@ -8,6 +8,8 @@ import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 
+import androidx.exifinterface.media.ExifInterface;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,10 +17,15 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -401,12 +408,33 @@ public class ImageStore {
                             hash = UUID.randomUUID().toString();
                         if (getImageObject(hash) == null) {
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
-                            String sDate = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context);
+                            long modDate = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context));
                             String type = context.getContentResolver().getType(uri);
-                            long creationDate = Long.parseLong(sDate);
+                            long creationDate = modDate;
                             try {
+                                InputStream fis = context.getContentResolver().openInputStream(uri);
+                                ExifInterface exifData = new ExifInterface(fis);
+                                fis.close();
+                                StringBuilder sb_format = new StringBuilder();
+                                StringBuilder sb_date = new StringBuilder();
+                                if (exifData.hasAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)){
+                                    sb_format.append("yyyy:MM:dd HH:mm:ssXXX");
+                                    sb_date.append(exifData.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+                                    if (exifData.hasAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL)){
+                                        sb_date.append(exifData.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
+                                    } else {
+                                        sb_date.append("+00:00");
+                                    }
+                                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(sb_format.toString());
+                                    try {
+                                        creationDate = ZonedDateTime.parse(sb_date.toString(),formatter).toInstant().toEpochMilli();
+                                    } catch (Exception e){
+                                        e.printStackTrace();
+                                    }
+                                }
                                 BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
-                                creationDate = attribs.creationTime().toMillis();
+                                if (creationDate == modDate && attribs.creationTime().toMillis() > 0)
+                                    creationDate = attribs.creationTime().toMillis();
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }

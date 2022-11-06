@@ -729,6 +729,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     public void onWallpaperLoadingFinished(int status, String msg) {
         loadingDialog.dismissDialog();
         store.removeWallpaperAddedListener(this);
+        store.saveToPrefs(context);
         invalidateOptionsMenu();
         if (status != ImageStore.WallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
