@@ -26,12 +26,6 @@
     <item
         android:id="@+id/menu_settings"
         android:title="@string/settings" />
-
-    <item
-        android:id="@+id/shuffle"
-        android:icon="@drawable/ic_baseline_shuffle_24"
-        android:title="@string/menu_shuffle"
-        app:showAsAction="never" />
     <item
         android:id="@+id/remove_all"
         android:icon="@drawable/ic_baseline_delete_forever_24"

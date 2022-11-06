@@ -54,7 +54,10 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
@@ -276,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     @Override
-    protected void onPause() {
+    protected void onDestroy() {
         store.removeSortListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
         if (itemMoveHelper != null)
@@ -284,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         if (itemSwipeHelper != null)
             itemSwipeHelper.attachToRecyclerView(null);
         store.saveToPrefs(context);
-        super.onPause();
+        super.onDestroy();
     }
 
     @Override
@@ -311,52 +314,72 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper_bad));
                 setSingleWallpaper(null);
                 return true;
-            case (R.id.shuffle):
-                new AlertDialog.Builder(this)
-                        .setTitle(getString(R.string.shuffle_confirmation_title))
-                        .setMessage(getString(R.string.shuffle_confirmation, getString(R.string.custom)))
-                        .setCancelable(false)
-                        .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
-                            dialog.dismiss();
-                            setResult(Activity.RESULT_CANCELED);
-                        })
-                        .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
-                            store.shuffleImages();
-                            store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
-                            dialog.dismiss();
-                            runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
-                            setResult(Activity.RESULT_OK);
-                        }).show();
-                return true;
             case (R.id.sort):
                 View sortOption = findViewById(R.id.sort);
                 PopupMenu popupMenu = new PopupMenu(context, sortOption);
                 popupMenu.getMenuInflater().inflate(R.menu.sort_menu, popupMenu.getMenu());
+                // Disable copy action if the custom list is active -- no need to copy to itself
+                popupMenu.getMenu().findItem(R.id.copy_list).setVisible(store.getSortCriteria() != ImageStore.SORT_BY_CUSTOM);
                 if (store.getSortCriteria() + 1 < popupMenu.getMenu().size())
                     popupMenu.getMenu().getItem(store.getSortCriteria() + 1).setChecked(true);
+
                 popupMenu.setOnMenuItemClickListener(menuItem -> {
                     switch (menuItem.getItemId()) {
-                        case (R.id.original):
-                            store.setSortCriteria(ImageStore.SORT_DEFAULT);
+                        case (R.id.custom):
+                            store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                            enableSwipeToDeleteAndUndo();
                             break;
                         case (R.id.date):
                             store.setSortCriteria(ImageStore.SORT_BY_DATE);
+                            enableSwipeToDeleteAndUndo();
                             break;
                         case (R.id.name):
                             store.setSortCriteria(ImageStore.SORT_BY_NAME);
+                            enableSwipeToDeleteAndUndo();
                             break;
                         case (R.id.size):
                             store.setSortCriteria(ImageStore.SORT_BY_SIZE);
+                            enableSwipeToDeleteAndUndo();
                             break;
-                        case (R.id.custom):
-                            store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                        case (R.id.shuffle):
+                            new AlertDialog.Builder(this)
+                                    .setTitle(getString(R.string.shuffle_confirmation_title))
+                                    .setMessage(getString(R.string.shuffle_confirmation, getString(R.string.custom)))
+                                    .setCancelable(false)
+                                    .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
+                                        dialog.dismiss();
+                                        setResult(Activity.RESULT_CANCELED);
+                                    })
+                                    .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
+                                        store.shuffleImages();
+                                        store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                                        enableSwipeToDeleteAndUndo();
+                                        dialog.dismiss();
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                                        setResult(Activity.RESULT_OK);
+                                    }).show();
+                            break;
+                        case (R.id.copy_list):
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Copy this image order?")
+                                    .setMessage(getString(R.string.copy_confirmation, getString(R.string.custom)))
+                                    .setCancelable(false)
+                                    .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> {
+                                        dialog.dismiss();
+                                        setResult(Activity.RESULT_CANCELED);
+                                    })
+                                    .setPositiveButton(R.string.copy_list_yes, (dialog, which) -> {
+                                        store.replace(Arrays.asList(store.getImageObjectArray()));
+                                        store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                                        enableSwipeToDeleteAndUndo();
+                                        dialog.dismiss();
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                                        setResult(Activity.RESULT_OK);
+                                    }).show();
                             break;
                         default:
                             return false;
                     }
-                    //Change drag behaviour based on selected sort list
-                    enableSwipeToDeleteAndUndo();
-                    runOnUiThread(() -> adapter.notifyDataSetChanged());
                     return true;
                 });
                 popupMenu.show();
@@ -439,7 +462,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     .setNegativeButton(getString(R.string.dialog_button_no), (dialog, which) -> dialog.dismiss())
                     .setPositiveButton(getString(R.string.dialog_button_yes_delete_all), (dialog, which) -> {
                         dialog.dismiss();
-                        store.clear();
+                        store.clear(false);
                         toggler.setChecked(false);
                         StorageUtils.CleanUpOrphans(getBaseContext().getFilesDir().getPath());
                         adapter.notifyDataSetChanged();
@@ -499,7 +522,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 final int position = viewHolder.getAbsoluteAdapterPosition();
                 final ImageObject item = adapter.getData().get(position);
                 final int refPos = store.getReferencePosition(item.getId());
-                final int custPos = store.getCustomPosition(item.getId());
                 boolean toggled = false;
                 boolean wasActiveWallpaper = store.getLastWallpaperId().equals(item.getId());
                 store.delImageObject(item.getId());
@@ -514,7 +536,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                 final boolean fToggled = toggled;
                 snackbar.setAction(getString(R.string.snack_action_undo), view -> {
 
-                    store.addImageObject(item, refPos, custPos);
+                    store.addImageObject(item, refPos);
                     if (wasActiveWallpaper) {
                         store.setLastWallpaperId(item.getId(), true);
                     }
@@ -596,12 +618,13 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
                             int fromPosition = viewHolder.getBindingAdapterPosition();
                             int toPosition = target.getBindingAdapterPosition();
-                            store.moveImage(store.getImageObject(fromPosition), toPosition);
-                            store.setLastWallpaperPos(toPosition);
-                            runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
-                            return true;
-                        } else
-                            return false;
+                            if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
+                                store.setLastWallpaperPos(toPosition);
+                                runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
+                                return true;
+                            }
+                        }
+                        return false;
                     }
 
                     @Override

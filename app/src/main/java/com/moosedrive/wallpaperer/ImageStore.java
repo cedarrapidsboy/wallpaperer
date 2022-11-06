@@ -26,7 +26,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -37,19 +37,18 @@ import java.util.concurrent.CountDownLatch;
  */
 public class ImageStore {
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
-    public static final int SORT_BY_ADDED = -1;
+    public static final int SORT_BY_CUSTOM = -1;
     public static final int SORT_BY_NAME = 0;
     public static final int SORT_BY_DATE = 1;
     public static final int SORT_BY_SIZE = 2;
-    public static final int SORT_BY_CUSTOM = 3;
-    public static final int SORT_DEFAULT = SORT_BY_ADDED;
+    public static final int SORT_DEFAULT = SORT_BY_CUSTOM;
     private static ImageStore store = null;
     private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
     private final Set<ImageStoreSortListener> sortListeners = new HashSet<>();
     private final ArrayList<Collection<ImageObject>> sortedImages = new ArrayList<>();
     public CountDownLatch loadingDoneSignal;
     public HashSet<String> loadingErrors = new HashSet<>();
-    private int sortCriteria = SORT_BY_ADDED;
+    private int sortCriteria = SORT_BY_CUSTOM;
     private LinkedHashMap<String, ImageObject> referenceImages;
     private String lastWallpaperId = "";
     private int lastWallpaperPos = -1;
@@ -71,8 +70,6 @@ public class ImageStore {
                 .thenComparing(ImageObject::getName)
                 .thenComparing(ImageObject::getAddedDate)
                 .thenComparing(ImageObject::getId)));
-        //SORT_BY_CUSTOM==3
-        sortedImages.add(new LinkedList<>());
     }
 
     /**
@@ -109,11 +106,18 @@ public class ImageStore {
      * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
      */
     public void shuffleImages(){
-        Collections.shuffle((LinkedList<?>)sortedImages.get(SORT_BY_CUSTOM));
-        //Always bring the last active wallpaper to the top
+        List<String> list = new ArrayList<>(referenceImages.keySet());
+        Collections.shuffle(list);
+
+        LinkedHashMap<String, ImageObject> shuffleMap = new LinkedHashMap<>();
+        list.forEach(k->shuffleMap.put(k, referenceImages.get(k)));
+        referenceImages = shuffleMap;
         if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
-            int newPos = ((LinkedList<?>) sortedImages.get(SORT_BY_CUSTOM)).indexOf(store.getImageObject(lastWallpaperId));
-            Collections.swap((LinkedList<?>) sortedImages.get(SORT_BY_CUSTOM), 0, newPos);
+            ImageObject moveToFront = referenceImages.get(lastWallpaperId);
+            if (moveToFront != null){
+                referenceImages.remove(moveToFront.getId());
+                addImageObject(moveToFront, 0);
+            }
             lastWallpaperPos = 0;
         }
     }
@@ -143,10 +147,6 @@ public class ImageStore {
             }
         }
         edit.putString("sources", imageArray.toString());
-        JSONArray customIds = new JSONArray();
-        for (ImageObject io : sortedImages.get(SORT_BY_CUSTOM).toArray(new ImageObject[0]))
-            customIds.put(io.getId());
-        edit.putString("custom", customIds.toString());
         edit.putInt("sort",getSortCriteria());
         edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
         edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
@@ -184,17 +184,6 @@ public class ImageStore {
                     e.printStackTrace();
                 }
             }
-            JSONArray customIds = new JSONArray(prefs.getString("custom","[]"));
-            LinkedList<ImageObject> ll = (LinkedList<ImageObject>)sortedImages.get(SORT_BY_CUSTOM);
-            ll.clear();
-            for (int i = 0; i < customIds.length(); i++){
-                ImageObject obj = referenceImages.get(customIds.getString(i));
-                if (obj != null && !ll.contains(obj))
-                    ll.add(referenceImages.get(customIds.getString(i)));
-            }
-            for (ImageObject obj : referenceImages.values())
-                if (!ll.contains(obj))
-                    ll.add(obj);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -227,7 +216,7 @@ public class ImageStore {
      * @param img the img
      */
     public synchronized void addImageObject(ImageObject img) {
-        addImageObject(img, -1, -1);
+        addImageObject(img, -1);
     }
 
     /**
@@ -236,7 +225,7 @@ public class ImageStore {
      * @param imgTry      the img
      * @param refPosition the position Where to place the new object, or -1 to append
      */
-    public synchronized void addImageObject(ImageObject imgTry, int refPosition, int customPosition) {
+    public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
         ImageObject img = imgTry;
         if (referenceImages.size() == 0 || refPosition < 0 || refPosition > (referenceImages.size() - 1)) {
             img = referenceImages.put(img.getId(), img);
@@ -259,15 +248,6 @@ public class ImageStore {
         for (Collection<ImageObject> imgArray : sortedImages){
             if (imgArray instanceof Set)
                 imgArray.add(img);
-            else if (imgArray instanceof LinkedList) {
-                if (!imgArray.contains(img)) {
-                    if (customPosition < 0 || customPosition > (referenceImages.size() - 1))
-                        imgArray.add(img);
-                    else
-                        ((LinkedList<ImageObject>)imgArray).add(customPosition,img);
-                }
-            }
-
         }
         //Reset the last wallpaper position since a new one was added and may have bumped it
         setLastWallpaperId(getLastWallpaperId(), false);
@@ -328,10 +308,15 @@ public class ImageStore {
      * @return the image object [ ]
      */
     public synchronized ImageObject[] getImageObjectArray() {
-        if (sortCriteria == SORT_BY_ADDED)
+        if (sortCriteria == SORT_BY_CUSTOM)
             return referenceImages.values().toArray(new ImageObject[0]);
         else
             return sortedImages.get(sortCriteria).toArray(new ImageObject[0]);
+    }
+
+    public void replace(Collection<ImageObject> col){
+        store.clear(true);
+        col.forEach(obj -> store.addImageObject(obj));
     }
 
     /**
@@ -358,22 +343,13 @@ public class ImageStore {
         return pos;
     }
 
-    public synchronized int getCustomPosition(String id) {
-        ImageObject[] objs = sortedImages.get(SORT_BY_CUSTOM).toArray(new ImageObject[0]);
-        int pos = -1;
-        for (int i = 0; i < objs.length; i++) {
-            if (objs[i].getId().equals(id))
-                pos = i;
-        }
-        return pos;
-    }
-
     /**
      * Clear.
      */
-    public synchronized void clear() {
+    public synchronized void clear(boolean listsOnly) {
         referenceImages.clear();
-        setLastWallpaperId("", false);
+        if (!listsOnly)
+            setLastWallpaperId("", false);
         for (Collection<ImageObject> imgArray : sortedImages){
             imgArray.clear();
         }
@@ -502,12 +478,13 @@ public class ImageStore {
         }
     }
 
-    public void moveImage(ImageObject object, int newPos){
-        LinkedList<ImageObject> sortedSet = (LinkedList<ImageObject>) sortedImages.get(SORT_BY_CUSTOM);
-        if (sortedSet.contains(object)){
-            sortedSet.remove(object);
-            sortedSet.add(newPos, object);
+    public boolean moveImageObject(ImageObject object, int newPos){
+        if (referenceImages.containsKey(object.getId())){
+            referenceImages.remove(object.getId());
+            addImageObject(object, newPos);
+            return true;
         }
+        return false;
     }
 
     public void addSortListener(ImageStoreSortListener sl) {

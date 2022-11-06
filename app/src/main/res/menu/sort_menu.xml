@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/original"
-        android:title="@string/date_added"
+        android:id="@+id/custom"
+        android:title="@string/custom"
         android:checkable="true"/>
     <item
         android:id="@+id/name"
@@ -18,7 +18,12 @@
         android:title="@string/image_size"
         android:checkable="true"/>
     <item
-        android:id="@+id/custom"
-        android:title="@string/custom"
-        android:checkable="true"/>
+        android:id="@+id/shuffle"
+        android:icon="@drawable/ic_baseline_shuffle_24"
+        android:title="@string/menu_shuffle"/>
+    <item
+        android:id="@+id/copy_list"
+        android:title="@string/sort_action_copy_list"
+        />
+
 </menu>
