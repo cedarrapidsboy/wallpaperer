@@ -17,6 +17,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -129,7 +130,7 @@ public class ImageStore {
      * @param lastPos the last pos
      */
     public void setLastWallpaperPos(int lastPos) {
-        this.lastWallpaperPos = lastPos;
+        lastWallpaperPos = lastPos;
     }
 
     /**
@@ -149,11 +150,13 @@ public class ImageStore {
      */
     public void shuffleImages(){
         List<String> list = new ArrayList<>(referenceImages.keySet());
+        // Shuffle all the images
         Collections.shuffle(list);
-
+        // Rebuild the hashmap with the shuffled list
         LinkedHashMap<String, ImageObject> shuffleMap = new LinkedHashMap<>();
         list.forEach(k->shuffleMap.put(k, referenceImages.get(k)));
         referenceImages = shuffleMap;
+        // Move the active wallpaper to the top
         if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
             ImageObject moveToFront = referenceImages.get(lastWallpaperId);
             if (moveToFront != null){
@@ -202,7 +205,6 @@ public class ImageStore {
      * @param context the context
      */
     public synchronized void updateFromPrefs(Context context) {
-        ImageStore is = store;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
@@ -215,7 +217,7 @@ public class ImageStore {
                     Date creationDate = (imageArray.getJSONObject(i).has("date"))
                             ?new Date(imageArray.getJSONObject(i).getLong("date"))
                             :new Date();
-                    ImageObject io = is.addImageObject(uri,
+                    ImageObject io = addImageObject(uri,
                             imageArray.getJSONObject(i).getString("id"),
                             imageArray.getJSONObject(i).getString("name"),
                             imageArray.getJSONObject(i).getLong("size"),
@@ -233,9 +235,9 @@ public class ImageStore {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        store.lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
-        store.lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
-        store.setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
+        lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
+        lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
+        setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
     }
 
     /**
@@ -253,14 +255,21 @@ public class ImageStore {
      * @throws IOException              the io exception
      */
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized ImageObject addImageObject(Uri uri, String id, String filename, long size, String type, Date addedDate, Date creationDate) throws NoSuchAlgorithmException, IOException {
+    public synchronized ImageObject addImageObject(
+            Uri uri,
+            String id,
+            String filename,
+            long size,
+            String type,
+            Date addedDate,
+            Date creationDate) throws NoSuchAlgorithmException, IOException {
         ImageObject img = new ImageObject(uri, id, filename, size, type, addedDate, creationDate);
         addImageObject(img);
         return img;
     }
 
     /**
-     * Add image object.
+     * Add image object to the end of the map.
      *
      * @param img the img
      */
@@ -277,8 +286,10 @@ public class ImageStore {
     public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
         ImageObject img = imgTry;
         if (referenceImages.size() == 0 || refPosition < 0 || refPosition > (referenceImages.size() - 1)) {
+            // add to end of map
             img = referenceImages.put(img.getId(), img);
         } else {
+            // rebuild the map and insert the image along the way
             int curPos = 0;
             LinkedHashMap<String, ImageObject> oldImages = referenceImages;
             LinkedHashMap<String, ImageObject> newImages = new LinkedHashMap<>();
@@ -291,7 +302,7 @@ public class ImageStore {
             }
             referenceImages = newImages;
         }
-        //Add the image to each sorted list
+        //Add the image to each sorted set
         if (img == null)
             img = imgTry;
         for (Collection<ImageObject> imgArray : sortedImages){
@@ -313,11 +324,11 @@ public class ImageStore {
         for (Collection<ImageObject> imgArray : sortedImages){
             imgArray.remove(deadImgWalking);
         }
-        if (deadImgWalking != null && store.getLastWallpaperId().equals(deadImgWalking.getId())) {
+        if (deadImgWalking != null && getLastWallpaperId().equals(deadImgWalking.getId())) {
             lastWallpaperId = "";
         } else {
             //Reset the last wallpaper position to the repositioned place
-            store.setLastWallpaperId(store.getLastWallpaperId(), false);
+            setLastWallpaperId(getLastWallpaperId(), false);
         }
     }
 
@@ -386,13 +397,7 @@ public class ImageStore {
      * @return position in image store, or -1 if not found
      */
     public synchronized int getPosition(String id) {
-        ImageObject[] objs = getImageObjectArray();
-        int pos = -1;
-        for (int i = 0; i < objs.length; i++) {
-            if (objs[i].getId().equals(id))
-                pos = i;
-        }
-        return pos;
+        return Arrays.asList(getImageObjectArray()).indexOf(getImageObject(id));
     }
 
     /**
@@ -402,13 +407,7 @@ public class ImageStore {
      * @return the reference position
      */
     public synchronized int getReferencePosition(String id) {
-        ImageObject[] objs = referenceImages.values().toArray(new ImageObject[0]);
-        int pos = -1;
-        for (int i = 0; i < objs.length; i++) {
-            if (objs[i].getId().equals(id))
-                pos = i;
-        }
-        return pos;
+        return Arrays.asList(referenceImages.keySet().toArray(new String[0])).indexOf(id);
     }
 
     /**
