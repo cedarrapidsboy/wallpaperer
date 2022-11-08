@@ -513,6 +513,10 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        //intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
         someActivityResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
     }
 

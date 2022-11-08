@@ -8,8 +8,6 @@ import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 
-import androidx.exifinterface.media.ExifInterface;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -17,15 +15,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,17 +33,41 @@ import java.util.concurrent.CountDownLatch;
  * The type Image store.
  */
 public class ImageStore {
+    /**
+     * The constant MINIMUM_REQUIRED_FREE_SPACE.
+     */
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
+    /**
+     * The constant SORT_BY_CUSTOM.
+     */
     public static final int SORT_BY_CUSTOM = -1;
+    /**
+     * The constant SORT_BY_NAME.
+     */
     public static final int SORT_BY_NAME = 0;
+    /**
+     * The constant SORT_BY_DATE.
+     */
     public static final int SORT_BY_DATE = 1;
+    /**
+     * The constant SORT_BY_SIZE.
+     */
     public static final int SORT_BY_SIZE = 2;
+    /**
+     * The constant SORT_DEFAULT.
+     */
     public static final int SORT_DEFAULT = SORT_BY_CUSTOM;
     private static ImageStore store = null;
     private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
     private final Set<ImageStoreSortListener> sortListeners = new HashSet<>();
     private final ArrayList<Collection<ImageObject>> sortedImages = new ArrayList<>();
+    /**
+     * The Loading done signal.
+     */
     public CountDownLatch loadingDoneSignal;
+    /**
+     * The Loading errors.
+     */
     public HashSet<String> loadingErrors = new HashSet<>();
     private int sortCriteria = SORT_BY_CUSTOM;
     private LinkedHashMap<String, ImageObject> referenceImages;
@@ -91,18 +105,39 @@ public class ImageStore {
         return store;
     }
 
+    /**
+     * Gets last wallpaper id.
+     *
+     * @return the last wallpaper id
+     */
     public String getLastWallpaperId() {
         return lastWallpaperId;
     }
 
+    /**
+     * Gets last wallpaper pos.
+     *
+     * @return the last wallpaper pos
+     */
     public int getLastWallpaperPos() {
         return lastWallpaperPos;
     }
 
+    /**
+     * Sets last wallpaper pos.
+     *
+     * @param lastPos the last pos
+     */
     public void setLastWallpaperPos(int lastPos) {
         this.lastWallpaperPos = lastPos;
     }
 
+    /**
+     * Sets last wallpaper id.
+     *
+     * @param lastWallpaperId the last wallpaper id
+     * @param force           the force
+     */
     public void setLastWallpaperId(String lastWallpaperId, boolean force) {
         this.lastWallpaperId = lastWallpaperId;
         if (force || !lastWallpaperId.equals(""))
@@ -209,11 +244,14 @@ public class ImageStore {
     /**
      * Add image object.
      *
-     * @param uri      the uri
-     * @param filename the filename
-     * @param size     the size
-     * @param type     the type
-     * @param creationDate     the date
+     * @param uri          the uri
+     * @param id           the id
+     * @param filename     the filename
+     * @param size         the size
+     * @param type         the type
+     * @param addedDate    the added date
+     * @param creationDate the date
+     * @return the image object
      * @throws NoSuchAlgorithmException the no such algorithm exception
      * @throws IOException              the io exception
      */
@@ -296,6 +334,12 @@ public class ImageStore {
         return referenceImages.get(id);
     }
 
+    /**
+     * Gets image object by name.
+     *
+     * @param name the name
+     * @return the image object by name
+     */
     public synchronized ImageObject getImageObjectByName(String name) {
         for (ImageObject img : referenceImages.values()) {
             if (img.getName().equals(name))
@@ -328,12 +372,19 @@ public class ImageStore {
             return sortedImages.get(sortCriteria).toArray(new ImageObject[0]);
     }
 
+    /**
+     * Replace.
+     *
+     * @param col the col
+     */
     public void replace(Collection<ImageObject> col){
         store.clear(true);
         col.forEach(obj -> store.addImageObject(obj));
     }
 
     /**
+     * Gets position.
+     *
      * @param id Unique ID of the ImageObject
      * @return position in image store, or -1 if not found
      */
@@ -347,6 +398,12 @@ public class ImageStore {
         return pos;
     }
 
+    /**
+     * Gets reference position.
+     *
+     * @param id the id
+     * @return the reference position
+     */
     public synchronized int getReferencePosition(String id) {
         ImageObject[] objs = referenceImages.values().toArray(new ImageObject[0]);
         int pos = -1;
@@ -359,6 +416,8 @@ public class ImageStore {
 
     /**
      * Clear.
+     *
+     * @param listsOnly the lists only
      */
     public synchronized void clear(boolean listsOnly) {
         referenceImages.clear();
@@ -379,10 +438,20 @@ public class ImageStore {
     }
 
 
+    /**
+     * Add wallpaper added listener.
+     *
+     * @param wal the wal
+     */
     public void addWallpaperAddedListener(WallpaperAddedListener wal) {
         wallpaperListeners.add(wal);
     }
 
+    /**
+     * Remove wallpaper added listener.
+     *
+     * @param wal the wal
+     */
     public void removeWallpaperAddedListener(WallpaperAddedListener wal) {
         wallpaperListeners.remove(wal);
     }
@@ -391,6 +460,7 @@ public class ImageStore {
      * Add wallpapers from list of URI's.
      * Loading dialog is displayed and progress bar updated as wallpapers are added.
      *
+     * @param context the context
      * @param sources the sources
      */
     public synchronized void addWallpapers(Context context, HashSet<Uri> sources) {
@@ -414,37 +484,10 @@ public class ImageStore {
                         if (hash == null)
                             hash = UUID.randomUUID().toString();
                         if (getImageObject(hash) == null) {
+                            // Get file modification date from file attributes (if available, 0 otherwise)
                             String name = StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_DISPLAY_NAME, context);
-                            long modDate = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context));
                             String type = context.getContentResolver().getType(uri);
-                            long creationDate = modDate;
-                            try {
-                                InputStream fis = context.getContentResolver().openInputStream(uri);
-                                ExifInterface exifData = new ExifInterface(fis);
-                                fis.close();
-                                StringBuilder sb_format = new StringBuilder();
-                                StringBuilder sb_date = new StringBuilder();
-                                if (exifData.hasAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)){
-                                    sb_format.append("yyyy:MM:dd HH:mm:ssXXX");
-                                    sb_date.append(exifData.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
-                                    if (exifData.hasAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL)){
-                                        sb_date.append(exifData.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
-                                    } else {
-                                        sb_date.append("+00:00");
-                                    }
-                                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(sb_format.toString());
-                                    try {
-                                        creationDate = ZonedDateTime.parse(sb_date.toString(),formatter).toInstant().toEpochMilli();
-                                    } catch (Exception e){
-                                        e.printStackTrace();
-                                    }
-                                }
-                                BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
-                                if (creationDate == modDate && attribs.creationTime().toMillis() > 0)
-                                    creationDate = attribs.creationTime().toMillis();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+                            long creationDate = StorageUtils.getCreationDate(context, uri);
                             if (type.startsWith("image/")) {
                                 try {
                                     String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
@@ -454,7 +497,9 @@ public class ImageStore {
                                     if (recompress) type = "image/webp";
                                     size = StorageUtils.getFileSize(uCopiedFile);
                                     try {
-                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, new Date(), new Date(creationDate));
+                                        // The current date/time, used as creation date/time if all other methods of getting the file's date/time fail
+                                        Date dNow = new Date();
+                                        ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, dNow, (creationDate > 0)?new Date(creationDate):dNow);
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         addImageObject(img);
@@ -498,10 +543,20 @@ public class ImageStore {
         }
     }
 
+    /**
+     * Gets sort criteria.
+     *
+     * @return the sort criteria
+     */
     public int getSortCriteria() {
         return sortCriteria;
     }
 
+    /**
+     * Sets sort criteria.
+     *
+     * @param sortCriteria the sort criteria
+     */
     public void setSortCriteria(int sortCriteria) {
         this.sortCriteria = sortCriteria;
         if (!lastWallpaperId.equals("")) {
@@ -513,6 +568,13 @@ public class ImageStore {
         }
     }
 
+    /**
+     * Move image object boolean.
+     *
+     * @param object the object
+     * @param newPos the new pos
+     * @return the boolean
+     */
     public boolean moveImageObject(ImageObject object, int newPos){
         if (referenceImages.containsKey(object.getId())){
             referenceImages.remove(object.getId());
@@ -522,28 +584,74 @@ public class ImageStore {
         return false;
     }
 
+    /**
+     * Add sort listener.
+     *
+     * @param sl the sl
+     */
     public void addSortListener(ImageStoreSortListener sl) {
         sortListeners.add(sl);
     }
 
+    /**
+     * Remove sort listener.
+     *
+     * @param sl the sl
+     */
     public void removeSortListener(ImageStoreSortListener sl) {
         sortListeners.remove(sl);
     }
 
+    /**
+     * The interface Image store sort listener.
+     */
     public interface ImageStoreSortListener {
+        /**
+         * On image store sort changed.
+         */
         void onImageStoreSortChanged();
     }
 
+    /**
+     * The interface Wallpaper added listener.
+     */
     public interface WallpaperAddedListener {
+        /**
+         * The constant SUCCESS.
+         */
         int SUCCESS = 0;
+        /**
+         * The constant ERROR.
+         */
         int ERROR = 1;
 
+        /**
+         * On wallpaper added.
+         *
+         * @param img the img
+         */
         void onWallpaperAdded(ImageObject img);
 
+        /**
+         * On wallpaper loading started.
+         *
+         * @param size the size
+         */
         void onWallpaperLoadingStarted(int size);
 
+        /**
+         * On wallpaper loading increment.
+         *
+         * @param inc the inc
+         */
         void onWallpaperLoadingIncrement(int inc);
 
+        /**
+         * On wallpaper loading finished.
+         *
+         * @param status  the status
+         * @param message the message
+         */
         void onWallpaperLoadingFinished(int status, String message);
     }
 }

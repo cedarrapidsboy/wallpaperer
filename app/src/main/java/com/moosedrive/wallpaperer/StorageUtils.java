@@ -9,6 +9,8 @@ import android.graphics.RectF;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 
+import androidx.exifinterface.media.ExifInterface;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -16,8 +18,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class StorageUtils {
 
@@ -328,5 +336,48 @@ public class StorageUtils {
                 }
             }
         }
+    }
+
+    /**
+     * Gets creation date.
+     *
+     * @param context the context
+     * @param uri     the uri
+     * @return the creation date
+     */
+    public static long getCreationDate(Context context, Uri uri) {
+        long modDate = Long.parseLong(getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context));
+        // Set the creation date to the modification date
+        long creationDate = modDate;
+        try {
+            // Try to get creation date from Exif data
+            try (InputStream fis = context.getContentResolver().openInputStream(uri)) {
+                ExifInterface exifData = new ExifInterface(fis);
+                StringBuilder sb_format = new StringBuilder();
+                StringBuilder sb_date = new StringBuilder();
+                if (exifData.hasAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)) {
+                    sb_format.append("yyyy:MM:dd HH:mm:ssXXX");
+                    sb_date.append(exifData.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+                    if (exifData.hasAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL)) {
+                        sb_date.append(exifData.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
+                    } else {
+                        sb_date.append("+00:00");
+                    }
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(sb_format.toString());
+                    creationDate = ZonedDateTime.parse(sb_date.toString(), formatter).toInstant().toEpochMilli();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            // If all else fails, try to get creation date another way
+            BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
+            if (creationDate == modDate && attribs.creationTime().toMillis() > 0)
+                creationDate = attribs.creationTime().toMillis();
+        } catch (NoSuchFileException e){
+            //ignore -- couldn't resolve the uri to a file
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return creationDate;
     }
 }
