@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 
 import androidx.exifinterface.media.ExifInterface;
@@ -292,11 +293,11 @@ public class StorageUtils {
     }
 
     /**
-     * Gets creation date.
+     * Gets creation date. If it is not available, returns 0 (epoch time).
      *
      * @param context the context
      * @param uri     the uri
-     * @return the creation date
+     * @return the creation date in millis or 0
      */
     public static long getCreationDate(Context context, Uri uri) {
         long modDate = Long.parseLong(getFileAttrib(uri, DocumentsContract.Document.COLUMN_LAST_MODIFIED, context));
@@ -305,9 +306,11 @@ public class StorageUtils {
         try {
             // Try to get creation date from Exif data
             try (InputStream fis = context.getContentResolver().openInputStream(uri)) {
+                // Expect to see debug messages: D/ExifInterface: No image meets the size requirements of a thumbnail image.
                 ExifInterface exifData = new ExifInterface(fis);
                 StringBuilder sb_format = new StringBuilder();
                 StringBuilder sb_date = new StringBuilder();
+                // Get Date, Time, and TZ offset from Exif fields (default to +00:00 offset)
                 if (exifData.hasAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)) {
                     sb_format.append("yyyy:MM:dd HH:mm:ssXXX");
                     sb_date.append(exifData.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));

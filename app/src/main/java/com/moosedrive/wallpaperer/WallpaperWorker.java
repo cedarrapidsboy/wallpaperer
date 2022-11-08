@@ -59,80 +59,6 @@ public class WallpaperWorker extends Worker {
         }
     }
 
-    @NonNull
-    @Override
-    public Result doWork() {
-
-        int compatWidth;
-        int compatHeight;
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            WindowMetrics metrics = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getCurrentWindowMetrics();
-            compatWidth = metrics.getBounds().width();
-            compatHeight = metrics.getBounds().height();
-        } else {
-            compatHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
-            compatWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
-        }
-        int height = compatHeight; //(wm.getDesiredMinimumHeight() > 0) ? wm.getDesiredMinimumHeight() : compatHeight;
-        int width = compatWidth; //(wm.getDesiredMinimumWidth() > 0) ? wm.getDesiredMinimumWidth() : compatWidth;
-
-        try {
-            Uri imgUri;
-            if (imgObject == null) {
-                int pos = store.getLastWallpaperPos();
-                if (store.getLastWallpaperId().equals("")) {
-                    //Image wasn't found at its expected position.
-                    //Back-up the pointer so whatever slid into place
-                    //will be the next paper
-                    pos--;
-                }
-                pos++;
-                if (pos >= store.size() || pos < 0) {
-                    pos = 0;
-                }
-                imgObject = store.getImageObject(pos);
-            }
-            if (imgObject != null) {
-                imgUri = imgObject.getUri();
-                try {
-                    ParcelFileDescriptor pfd = context.
-                            getContentResolver().
-                            openFileDescriptor(imgUri, "r");
-                    final Bitmap bitmapSource = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
-                    pfd.close();
-                    new Thread(() -> {
-                        try {
-                            boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
-                            Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
-                            WallpaperManager.getInstance(context).setBitmap(bitmap);
-                            store.setLastWallpaperId(imgObject.getId(), false);
-                            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
-                            long now = new Date().getTime();
-                            prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
-                            prefEdit.apply();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }).start();
-                } catch (IOException e) {
-                    store.delImageObject(imgObject.getId());
-                    //StorageUtils.releasePersistableUriPermission(context, imgObject.getUri());
-                    e.printStackTrace();
-                } finally {
-                    store.saveToPrefs(context);
-                }
-            }
-        } catch (CancellationException e) {
-            //do nothing
-        }
-        // schedule the next wallpaper change
-        if (PreferenceHelper.isActive(context)) {
-            scheduleRandomWallpaper(context, false, null);
-        }
-        return Result.success();
-    }
-
     /**
      * Start the wallpaper scheduler.
      * Will wait the preferred wallpaper delay (from preferences) prior to the first execution.
@@ -192,5 +118,76 @@ public class WallpaperWorker extends Worker {
             prefEdit.putLong(mContext.getString(R.string.preference_worker_last_queue), new Date().getTime());
             prefEdit.apply();
         }
+    }
+
+    @NonNull
+    @Override
+    public Result doWork() {
+
+        int compatWidth;
+        int compatHeight;
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            WindowMetrics metrics = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getCurrentWindowMetrics();
+            compatWidth = metrics.getBounds().width();
+            compatHeight = metrics.getBounds().height();
+        } else {
+            compatHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
+            compatWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
+        }
+        int height = compatHeight; //(wm.getDesiredMinimumHeight() > 0) ? wm.getDesiredMinimumHeight() : compatHeight;
+        int width = compatWidth; //(wm.getDesiredMinimumWidth() > 0) ? wm.getDesiredMinimumWidth() : compatWidth;
+
+        try {
+            Uri imgUri;
+            if (imgObject == null) {
+                int pos = store.getLastWallpaperPos();
+                if (store.getLastWallpaperId().equals("")) {
+                    //Image wasn't found at its expected position.
+                    //Back-up the pointer so whatever slid into place
+                    //will be the next paper
+                    pos--;
+                }
+                pos++;
+                if (pos >= store.size() || pos < 0) {
+                    pos = 0;
+                }
+                imgObject = store.getImageObject(pos);
+            }
+            if (imgObject != null) {
+                imgUri = imgObject.getUri();
+                try (ParcelFileDescriptor pfd = context.
+                        getContentResolver().
+                        openFileDescriptor(imgUri, "r")) {
+                    final Bitmap bitmapSource = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
+                    new Thread(() -> {
+                        try {
+                            boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
+                            Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
+                            WallpaperManager.getInstance(context).setBitmap(bitmap);
+                            store.setLastWallpaperId(imgObject.getId(), false);
+                            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+                            long now = new Date().getTime();
+                            prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
+                            prefEdit.apply();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+                } catch (IOException e) {
+                    store.delImageObject(imgObject.getId());
+                    e.printStackTrace();
+                } finally {
+                    store.saveToPrefs(context);
+                }
+            }
+        } catch (CancellationException e) {
+            //do nothing
+        }
+        // schedule the next wallpaper change
+        if (PreferenceHelper.isActive(context)) {
+            scheduleRandomWallpaper(context, false, null);
+        }
+        return Result.success();
     }
 }

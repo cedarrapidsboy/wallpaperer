@@ -207,11 +207,8 @@ public class ImageStore {
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
             for (int i = 0; i < imageArray.length(); i++) {
-                ParcelFileDescriptor pfd;
                 Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
-                try {
-                    pfd = context.getContentResolver().openFileDescriptor(uri, "r");
-                    pfd.close();
+                try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")){
                     Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
                             ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
                             :new Date();
@@ -227,7 +224,7 @@ public class ImageStore {
                             creationDate);
                     io.setColor(imageArray.getJSONObject(i).getInt("color"));
                 } catch (FileNotFoundException e) {
-                    System.out.println("ERROR: loadFromPrefs: File no longer exists.");
+                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
                     e.printStackTrace();
                 } catch (NoSuchAlgorithmException | IOException | JSONException e) {
                     e.printStackTrace();

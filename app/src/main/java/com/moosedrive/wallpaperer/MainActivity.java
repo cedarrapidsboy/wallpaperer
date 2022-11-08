@@ -404,13 +404,10 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         ImageObject img = store.getImageObject(imageId);
         if (img != null) {
             Uri uri = img.getUri();
-            ParcelFileDescriptor pfd;
-            try {
-                pfd = context.
-                        getContentResolver().
-                        openFileDescriptor(uri, "r");
-                exists = true;
-                pfd.close();
+            try (ParcelFileDescriptor pfd = context.
+                    getContentResolver().
+                    openFileDescriptor(uri, "r")){
+                exists = pfd != null;
             } catch (IOException e) {
                 e.printStackTrace();
             }
