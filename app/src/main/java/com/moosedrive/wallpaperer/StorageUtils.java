@@ -97,20 +97,12 @@ public class StorageUtils {
     }
 
     public static String getHash(Context context, Uri uri) {
-        InputStream source = null;
-        try {
-            source = context.getContentResolver().openInputStream(uri);
+        try (InputStream source = context.getContentResolver().openInputStream(uri)){
+
             return getSHA256(source, 1024);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
-        } finally {
-            if (source != null)
-                try {
-                    source.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
         }
     }
 
@@ -135,13 +127,8 @@ public class StorageUtils {
     }
 
     public static Uri saveThumbnail(Context context, Uri sourceuri, String destFileName) throws IOException {
-        BufferedOutputStream bos = null;
-        InputStream input = null;
         String destinationDir = getStorageFolder(context).getPath() + File.separator + THUMBDIR;
-
-        try {
-
-            boolean directorySetupResult;
+        boolean directorySetupResult;
             File destDir = new File(destinationDir);
             if (!destDir.exists()) {
                 directorySetupResult = destDir.mkdirs();
@@ -154,91 +141,57 @@ public class StorageUtils {
                 String destination = destinationDir + File.separator + destFileName;
                 File destinationFile = new File(destination);
 
-                input = context.getContentResolver().openInputStream(sourceuri);
-                bos = new BufferedOutputStream(new FileOutputStream(destination));
-                // Recompress before writing to new file
-                Bitmap originalBm = BitmapFactory.decodeStream(input);
-                originalBm = resizeBitmapCenter(512, 512, originalBm, true);
-                originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
-                input.close();
-                bos.flush();
-                bos.close();
-                return Uri.fromFile(destinationFile);
+                try (InputStream input = context.getContentResolver().openInputStream(sourceuri);
+                BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+                    // Recompress before writing to new file
+                    Bitmap originalBm = BitmapFactory.decodeStream(input);
+                    originalBm = resizeBitmapCenter(512, 512, originalBm, true);
+                    originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
+                    return Uri.fromFile(destinationFile);
+                }
 
             }
-        } finally {
-            try {
-                if (input != null)
-                    input.close();
-                if (bos != null) {
-                    bos.flush();
-                    bos.close();
-                }
-            } catch (Exception ignored) {
-            }
-        }
         return null;
     }
 
-    public static Uri saveBitmap(Context context, Uri sourceuri, long maxSizeCompressed, String destinationDir, String destFileName, boolean recompress) throws IOException {
-
-        BufferedInputStream bis = null;
-        BufferedOutputStream bos = null;
-        InputStream input = null;
-
-        try {
-
-            boolean directorySetupResult;
-            File destDir = new File(destinationDir);
-            if (!destDir.exists()) {
-                directorySetupResult = destDir.mkdirs();
-            } else if (!destDir.isDirectory()) {
-                directorySetupResult = replaceFileWithDir(destinationDir);
-            } else {
-                directorySetupResult = true;
-            }
-            if (directorySetupResult) {
-                String destination = destinationDir + File.separator + destFileName;
-                File destinationFile = null;
-                if (recompress) {
-                    input = context.getContentResolver().openInputStream(sourceuri);
-                    bos = new BufferedOutputStream(new FileOutputStream(destination));
+    public static Uri saveBitmap(Context context, Uri sourceUri, long maxSizeCompressed, String destinationDir, String destFileName, boolean recompress) throws IOException {
+        boolean directorySetupResult;
+        File destDir = new File(destinationDir);
+        if (!destDir.exists()) {
+            directorySetupResult = destDir.mkdirs();
+        } else if (!destDir.isDirectory()) {
+            directorySetupResult = replaceFileWithDir(destinationDir);
+        } else {
+            directorySetupResult = true;
+        }
+        if (directorySetupResult) {
+            String destination = destinationDir + File.separator + destFileName;
+            File destinationFile = null;
+            if (recompress) {
+                try (InputStream input = context.getContentResolver().openInputStream(sourceUri);
+                     BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
                     // Recompress before writing to new file
                     Bitmap originalBm = BitmapFactory.decodeStream(input);
                     originalBm.compress(Bitmap.CompressFormat.WEBP, 75, bos);
-                    input.close();
-                    bos.flush();
-                    bos.close();
                     destinationFile = new File(destination);
                 }
-                // Copy the original if requested, or if the compressed version is bigger
-                if (!recompress || (maxSizeCompressed > 0 && destinationFile.length() > maxSizeCompressed)) {
-                    input = context.getContentResolver().openInputStream(sourceuri);
-                    bos = new BufferedOutputStream(new FileOutputStream(destination));
+            }
+            // Copy the original if requested, or if the compressed version is bigger
+            if (!recompress || (maxSizeCompressed > 0 && destinationFile.length() > maxSizeCompressed)) {
+                try (InputStream input = context.getContentResolver().openInputStream(sourceUri);
+                     BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
                     // Write to new file unchanged
-                    int originalsize = input.available();
-                    bis = new BufferedInputStream(input);
-                    byte[] buf = new byte[originalsize];
-                    //bis.read(buf);
-                    while (bis.read(buf) != -1) {
-                        bos.write(buf);
+                    int originalSize = input.available();
+                    try (BufferedInputStream bis = new BufferedInputStream(input)) {
+                        byte[] buf = new byte[originalSize];
+                        //bis.read(buf);
+                        while (bis.read(buf) != -1) {
+                            bos.write(buf);
+                        }
                     }
                 }
             }
-        } finally {
-            try {
-                if (input != null)
-                    input.close();
-                if (bos != null) {
-                    bos.flush();
-                    bos.close();
-                }
-                if (bis != null)
-                    bis.close();
-            } catch (Exception ignored) {
-            }
         }
-
         return Uri.fromFile(new File(destinationDir + File.separator + destFileName));
     }
 
@@ -373,7 +326,7 @@ public class StorageUtils {
             BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
             if (creationDate == modDate && attribs.creationTime().toMillis() > 0)
                 creationDate = attribs.creationTime().toMillis();
-        } catch (NoSuchFileException e){
+        } catch (NoSuchFileException e) {
             //ignore -- couldn't resolve the uri to a file
         } catch (IOException e) {
             e.printStackTrace();

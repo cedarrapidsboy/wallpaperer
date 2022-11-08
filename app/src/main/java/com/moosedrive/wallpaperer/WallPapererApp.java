@@ -5,7 +5,7 @@ import android.os.StrictMode;
 
 public class WallPapererApp extends Application {
     public WallPapererApp() {
-        if(BuildConfig.DEBUG)
-            StrictMode.enableDefaults();
+        //if(BuildConfig.DEBUG)
+            //StrictMode.enableDefaults();
     }
 }
