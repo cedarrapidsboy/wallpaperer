@@ -146,7 +146,8 @@ public class ImageStore {
                 imageJson.put("name", io.getName());
                 imageJson.put("size", io.getSize());
                 imageJson.put("type", io.getType());
-                imageJson.put("date", io.getAddedDate().getTime());
+                imageJson.put("date", io.getCreationDate().getTime());
+                imageJson.put("added_date", io.getAddedDate().getTime());
                 imageJson.put("color", io.getColor());
                 imageArray.put(imageJson);
             } catch (JSONException e) {
@@ -176,15 +177,21 @@ public class ImageStore {
                 try {
                     pfd = context.getContentResolver().openFileDescriptor(uri, "r");
                     pfd.close();
+                    Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
+                            ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
+                            :new Date();
+                    Date creationDate = (imageArray.getJSONObject(i).has("date"))
+                            ?new Date(imageArray.getJSONObject(i).getLong("date"))
+                            :new Date();
                     ImageObject io = is.addImageObject(uri,
                             imageArray.getJSONObject(i).getString("id"),
                             imageArray.getJSONObject(i).getString("name"),
                             imageArray.getJSONObject(i).getLong("size"),
                             imageArray.getJSONObject(i).getString("type"),
-                            new Date(imageArray.getJSONObject(i).getLong("date")));
+                            addedDate,
+                            creationDate);
                     io.setColor(imageArray.getJSONObject(i).getInt("color"));
                 } catch (FileNotFoundException e) {
-                    //StorageUtils.releasePersistableUriPermission(context, uri);
                     System.out.println("ERROR: loadFromPrefs: File no longer exists.");
                     e.printStackTrace();
                 } catch (NoSuchAlgorithmException | IOException | JSONException e) {
@@ -211,8 +218,8 @@ public class ImageStore {
      * @throws IOException              the io exception
      */
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized ImageObject addImageObject(Uri uri, String id, String filename, long size, String type, Date creationDate) throws NoSuchAlgorithmException, IOException {
-        ImageObject img = new ImageObject(uri, id, filename, size, type, new Date(), creationDate);
+    public synchronized ImageObject addImageObject(Uri uri, String id, String filename, long size, String type, Date addedDate, Date creationDate) throws NoSuchAlgorithmException, IOException {
+        ImageObject img = new ImageObject(uri, id, filename, size, type, addedDate, creationDate);
         addImageObject(img);
         return img;
     }
