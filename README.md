@@ -10,13 +10,14 @@ The Wallpaperer workflow is simple:
 3. Set your desired wallpaper changing delay/interval in the app settings (default: 15 minutes)
 
 ## Features
-* ![add](/images/add.png) Touch this button to add a new image to the library. You can choose an image that is stored locally on your device. All images added to Wallpaperer are copied to the app and will remain even if the original source is deleted. A white ring around the button indicates progress toward the next scheduled wallpaper change.
-* ![toggle](/images/toggle.png) When enabled, the homescreen wallpaper will be changed to a random image on a customizable time interval (see: Settings)
-* ![cycle](/images/cycle.png) Touch this control to immediately change the homescreen wallpaper to a new random image (from this app's gallery)
+* ![add](/images/add.png) Touch this button to add a new image to the library. All images added to Wallpaperer are copied to the app and will remain even if the original source is deleted. A white ring around the button indicates progress toward the next scheduled wallpaper change.
+* ![toggle](/images/toggle.png) When enabled, the homescreen wallpaper will be changed to the next image on a customizable time interval (see: Settings)
+* ![cycle](/images/cycle.png) Touch this control to immediately change the homescreen wallpaper to the next image (from this app's gallery)
 * ![next](/images/next.png) This button appears on every image tile. Touch it to immediately change the homescreen wallpaper to the respective image.
 * ![share](/images/share.png) This button appears on every image tile. Touch it to share the respective image with another app. NOTE: The image that is sent may have been recompressed and be lower quality than the original source (see: Settings).
 * Tap a thumbnail to view a fullscreen preview of the image.
-* Swipe the thumbnail off the screen to delete it from the gallery. There is a short time where you can press *UNDO* after swiping away an image. NOTE: This will delete the copy of the image maintained by Wallpaperer. It **does not** delete the original source that was added/shared to the gallery.
+* Drag thumbnails to re-order them.
+* Swipe the thumbnail off the screen to delete it from the gallery. NOTE: This will delete the copy of the image maintained by Wallpaperer. It **does not** delete the original source that was added/shared to the gallery. There is a short time where you can press *UNDO* after swiping away an image.
 * Share an image from any app to Wallpaperer. Sharing an image to this app will create a copy of the image in the Wallpaperer gallery.
 
 ## Settings
@@ -45,7 +46,7 @@ The interval between automatic homescreen wallpaper changes. The minimum delay (
 Android aggresively manages the power consumption of apps by placing them into a *Doze* mode after the device has been inactive for a while. While in doze mode, the wallpaper changing job will not run and its next run time becomes unpredictable. To make the wallpaper interval more predictable it is recommended that you don't allow Android to *optimize* this app. Touch this setting to open the Android system menu for battery optimization. Use that system menu to remove this app from the optimized apps list.
 
 ## System Requirements
-* Android 9 (Pie)
+* Android 9 (Pie) +
 * ~800MB of free storage (app will not add new images under this threshold to protect system stability)
 
 ## Build
