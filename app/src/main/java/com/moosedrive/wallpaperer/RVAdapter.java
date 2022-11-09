@@ -229,4 +229,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
             }
         }
     }
+
+    public interface ItemClickListener {
+        void onSetWpClick(int position);
+
+        void onImageClick(int pos, View view);
+    }
 }

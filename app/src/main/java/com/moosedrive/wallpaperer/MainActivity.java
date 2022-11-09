@@ -55,9 +55,7 @@ import com.stfalcon.imageviewer.StfalconImageViewer;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
@@ -66,7 +64,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
+public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, RVAdapter.ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
 
     final boolean isloading = false;
     private ProgressDialogFragment loadingDialog;
