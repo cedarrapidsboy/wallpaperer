@@ -1,5 +1,5 @@
 # wallpaperer
-A gallery and homescreen wallpaper changer app for Android.
+A home screen wallpaper changer app for Android.
 
 <img src="/images/Screenshot_20221018_134243.png" alt="wallpaperer app running on a Nexus 6 Pro" width="400"/>
 
@@ -10,15 +10,23 @@ The Wallpaperer workflow is simple:
 3. Set your desired wallpaper changing delay/interval in the app settings (default: 15 minutes)
 
 ## Features
-* ![add](/images/add.png) Touch this button to add a new image to the library. All images added to Wallpaperer are copied to the app and will remain even if the original source is deleted. A white ring around the button indicates progress toward the next scheduled wallpaper change.
-* ![toggle](/images/toggle.png) When enabled, the homescreen wallpaper will be changed to the next image on a customizable time interval (see: Settings)
-* ![cycle](/images/cycle.png) Touch this control to immediately change the homescreen wallpaper to the next image (from this app's gallery)
-* ![next](/images/next.png) This button appears on every image tile. Touch it to immediately change the homescreen wallpaper to the respective image.
-* ![share](/images/share.png) This button appears on every image tile. Touch it to share the respective image with another app. NOTE: The image that is sent may have been recompressed and be lower quality than the original source (see: Settings).
-* Tap a thumbnail to view a fullscreen preview of the image.
-* Drag thumbnails to re-order them.
-* Swipe the thumbnail off the screen to delete it from the gallery. NOTE: This will delete the copy of the image maintained by Wallpaperer. It **does not** delete the original source that was added/shared to the gallery. There is a short time where you can press *UNDO* after swiping away an image.
+![add](images/add.png) Touch this button to add a new image to the library. All images added to Wallpaperer are copied to the app and will remain even if the original source is deleted. A white ring around the button indicates progress toward the next scheduled wallpaper change.
+
+![controls](images/controls.png)
+
+* When the toggle is enabled the home screen wallpaper will be changed to the next image on a customizable time interval (see: Settings)
+* Touch the cycle control to immediately change the home screen wallpaper to the next image (from this app's gallery)
+* Switch the view between the customizable list of cards and other lists that sort the cards based on different criteria, e.g., name, date, and size.
+
+![card](images/card.png)
+* The *next* button appears on every image card. Touch it to immediately change the home screen wallpaper to the card's image.
+* The *share* button appears on every image card. Touch it to share the card's image with another app. NOTE: The image that is sent may have been recompressed and be lower quality than the original source (see: Settings).
+* Tap the card to view a fullscreen preview of the image.
+* Drag cards to re-order them (only in the *custom* view).
+* Swipe the card off the screen to delete it from the gallery. NOTE: This will delete the copy of the image maintained by Wallpaperer. It **does not** delete the original source that was added/shared to the gallery. There is a short time where you can press *UNDO* after swiping away an image.
+###Other features
 * Share an image from any app to Wallpaperer. Sharing an image to this app will create a copy of the image in the Wallpaperer gallery.
+* Scroll quickly by dragging the scroll bar thumb.
 
 ## Settings
 
@@ -40,10 +48,10 @@ Some versions of Android have a *feature* that causes apps to restart when the h
 Walpaperer makes a copy of every image added to its gallery. This option will attempt to compress those image copies and reduce the amount of storage space they consume. This is lossy compression that may result in lower visual quality.
 
 ### Wallpaper delay
-The interval between automatic homescreen wallpaper changes. The minimum delay (Android work request limitation) is 15 minutes. You may specify between 15 minutes and 24 hours (default: 15 minutes).
+The interval between automatic home screen wallpaper changes. The minimum delay (Android work request limitation) is 15 minutes. You may specify between 15 minutes and 24 hours (default: 15 minutes).
 
 ### Battery optimization settings
-Android aggresively manages the power consumption of apps by placing them into a *Doze* mode after the device has been inactive for a while. While in doze mode, the wallpaper changing job will not run and its next run time becomes unpredictable. To make the wallpaper interval more predictable it is recommended that you don't allow Android to *optimize* this app. Touch this setting to open the Android system menu for battery optimization. Use that system menu to remove this app from the optimized apps list.
+Android aggressively manages the power consumption of apps by placing them into a *Doze* mode after the device has been inactive for a while. While in doze mode, the wallpaper changing job will not run and its next run time becomes unpredictable. To make the wallpaper interval more predictable it is recommended that you don't allow Android to *optimize* this app. Touch this setting to open the Android system menu for battery optimization. Use that system menu to remove this app from the optimized apps list.
 
 ## System Requirements
 * Android 9 (Pie) +
@@ -51,6 +59,10 @@ Android aggresively manages the power consumption of apps by placing them into a
 
 ## Build
 Clone and build this project with [Android Studio](https://developer.android.com/studio).
+
+##Known Issues
+###Google Photos
+Adding images via the Google Photos app on Android (either via the (+) button or via a share from Google Photos) may result in image Exif data being stripped. As a result, the added image will use the current date & time instead of the original file's creation time.
 
 ## License
 
