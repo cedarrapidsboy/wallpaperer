@@ -61,8 +61,8 @@ Android aggressively manages the power consumption of apps by placing them into 
 ## Build
 Clone and build this project with [Android Studio](https://developer.android.com/studio).
 
-##Known Issues
-###Google Photos
+## Known Issues
+### Google Photos
 Adding images via the Google Photos app on Android (either via the (+) button or via a share from Google Photos) may result in image Exif data being stripped. As a result, the added image will use the current date & time instead of the original file's creation time.
 
 ## License
