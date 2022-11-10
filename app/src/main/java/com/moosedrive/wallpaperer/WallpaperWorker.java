@@ -165,10 +165,10 @@ public class WallpaperWorker extends Worker {
                             boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
                             Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
                             WallpaperManager.getInstance(context).setBitmap(bitmap);
-                            store.setLastWallpaperId(imgObject.getId(), false);
                             SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
                             long now = new Date().getTime();
                             prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
+                            prefEdit.putString(context.getString(R.string.last_wallpaper), imgObject.getId());
                             prefEdit.apply();
                         } catch (IOException e) {
                             e.printStackTrace();

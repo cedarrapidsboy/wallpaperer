@@ -619,7 +619,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                             int fromPosition = viewHolder.getBindingAdapterPosition();
                             int toPosition = target.getBindingAdapterPosition();
                             if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
-                                store.setLastWallpaperPos(toPosition);
+                                store.setLastWallpaperPos(store.getPosition(store.getLastWallpaperId()));
                                 runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
                                 return true;
                             }
