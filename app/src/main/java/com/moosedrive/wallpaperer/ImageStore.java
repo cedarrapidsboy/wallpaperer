@@ -13,6 +13,7 @@ import org.json.JSONObject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -54,17 +56,21 @@ public class ImageStore {
 
     private int sortCriteria = SORT_BY_CUSTOM;
     private final HashMap<String, ImageObject> referenceImages;
-    private final LinkedList<ImageObject> orderedImages;
-    private final ArrayList<TreeSet<ImageObject>> sortedImages = new ArrayList<>();
+    private final List<ImageObject> orderedImages;
+    private final List<TreeSet<ImageObject>> sortedImages;
     private String lastWallpaperId = "";
     private int lastWallpaperPos = -1;
 
     private ImageStore() {
+        // The entire image repository
         referenceImages = new LinkedHashMap<>();
+        // The user-ordered list of images
         orderedImages = new LinkedList<>();
+        // The pre-sorted sets of images (a list of sets)
+        sortedImages = new ArrayList<>();
         //SORT_BY_NAME==0
         sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)
-                .thenComparing(ImageObject::getAddedDate)
+                .thenComparing(ImageObject::getCreationDate)
                 .thenComparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getId)));
         //SORT_BY_DATE==1
@@ -75,7 +81,7 @@ public class ImageStore {
         //SORT_BY_SIZE==2
         sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getName)
-                .thenComparing(ImageObject::getAddedDate)
+                .thenComparing(ImageObject::getCreationDate)
                 .thenComparing(ImageObject::getId)));
     }
 
@@ -224,8 +230,8 @@ public class ImageStore {
      *
      * @param img the img
      */
-    public synchronized void addImageObject(ImageObject img) {
-        addImageObject(img, -1);
+    public synchronized boolean addImageObject(ImageObject img) {
+        return addImageObject(img, -1);
     }
 
     /**
@@ -234,16 +240,18 @@ public class ImageStore {
      * @param imgTry      the img
      * @param refPosition the position Where to place the new object, or -1 to append
      */
-    public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
+    public synchronized boolean addImageObject(ImageObject imgTry, int refPosition) {
         ImageObject img = referenceImages.put(imgTry.getId(), imgTry);
         int index = refPosition;
-        if (img == null || img != imgTry) {
+        boolean notExists = (img == null || img != imgTry);
+        if (notExists) {
             if (index < 0 || index > orderedImages.size())
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
             sortedImages.forEach(imgarray -> imgarray.add(imgTry));
         }
         setLastWallpaperId(getLastWallpaperId(), false);
+        return notExists;
     }
 
     /**
@@ -404,7 +412,10 @@ public class ImageStore {
      */
     public boolean moveImageObject(ImageObject object, int newPos){
         if (referenceImages.containsKey(object.getId())){
+            String previousActiveId = lastWallpaperId;
             delImageObject(object.getId());
+            if (previousActiveId.equals(object.getId()))
+                setLastWallpaperId(previousActiveId, true);
             addImageObject(object, newPos);
             return true;
         }

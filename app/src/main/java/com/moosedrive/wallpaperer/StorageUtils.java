@@ -214,6 +214,27 @@ public class StorageUtils {
         return 0;
     }
 
+    /**
+     * Checks if the storage item for the image exists.
+     *
+     * @param context Application context
+     * @param uri the uri
+     * @return the boolean
+     */
+    public static boolean sourceExists(Context context, Uri uri) {
+        boolean exists = false;
+        if (uri != null) {
+            try (ParcelFileDescriptor pfd = context.
+                    getContentResolver().
+                    openFileDescriptor(uri, "r")){
+                exists = pfd != null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return exists;
+    }
+
     public static boolean fileExists(Uri uri) {
         File file = new File(uri.getPath());
         return file.exists();
