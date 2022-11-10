@@ -24,7 +24,8 @@ The Wallpaperer workflow is simple:
 * Tap the card to view a fullscreen preview of the image.
 * Drag cards to re-order them (only in the *custom* view).
 * Swipe the card off the screen to delete it from the gallery. NOTE: This will delete the copy of the image maintained by Wallpaperer. It **does not** delete the original source that was added/shared to the gallery. There is a short time where you can press *UNDO* after swiping away an image.
-###Other features
+
+### Other features
 * Share an image from any app to Wallpaperer. Sharing an image to this app will create a copy of the image in the Wallpaperer gallery.
 * Scroll quickly by dragging the scroll bar thumb.
 
