@@ -361,7 +361,7 @@ public class ImageStore {
         referenceImages.clear();
         orderedImages.clear();
         if (!listsOnly)
-            setLastWallpaperId("", false);
+            setLastWallpaperId("", true);
         sortedImages.forEach(TreeSet::clear);
     }
 

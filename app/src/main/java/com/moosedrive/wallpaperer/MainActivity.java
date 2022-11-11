@@ -199,11 +199,11 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @SuppressLint("NotifyDataSetChanged")
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
-        adapter = new RVAdapter(context);
+        adapter = new RVAdapter(context, store, PreferenceHelper.getGridLayoutColumns(context));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
         int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
-        int columns = width / RVAdapter.getCardSize(context);
-        int rows = height / RVAdapter.getCardSize(context);
+        int columns = width / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
+        int rows = height / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
         rv.setLayoutManager(
                 new GridLayoutManager(context
                         , columns > 0 ? columns : 1));
@@ -236,11 +236,15 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
             });
         });
         new FastScrollerBuilder(rv).useMd2Style().build();
-        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
-        //Pre-loader loads images into the Glide memory cache while they are still off screen
-        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
-        rv.addOnScrollListener(preloader);
+        if (preloader == null) {
+            ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context)), RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context)));
+            //Pre-loader loads images into the Glide memory cache while they are still off screen
+            preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
+            rv.addOnScrollListener(preloader);
+        }
     }
+
+    RecyclerViewPreloader<ImageObject> preloader;
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -281,6 +285,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @Override
     protected void onDestroy() {
         store.removeSortListener(this);
+        rv.removeOnScrollListener(preloader);
         WallpaperManager.getInstance().removeWallpaperSetListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
         if (itemMoveHelper != null)
@@ -553,11 +558,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
-            int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-            int columns = width / RVAdapter.getCardSize(context);
-            rv.setLayoutManager(
-                    new GridLayoutManager(context
-                            , columns > 0 ? columns : 1));
+            setupRecyclerView();
         } else if (key.equals(getResources().getString(R.string.preference_idle))) {
             if (sharedPreferences.getBoolean(key, false)) {
                 if (PreferenceHelper.isActive(this)) {
