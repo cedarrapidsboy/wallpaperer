@@ -71,8 +71,8 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onDisplayPreferenceDialog(@NonNull Preference preference) {
             DialogFragment dialogFragment = null;
-            if (preference instanceof DialogTimePreference) {
-                dialogFragment = new DialogTimePrefCompat();
+            if (preference instanceof TimeDialogPreference) {
+                dialogFragment = new TimeDialogFragment();
                 Bundle bundle = new Bundle(1);
                 bundle.putString("key", preference.getKey());
                 dialogFragment.setArguments(bundle);

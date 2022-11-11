@@ -221,7 +221,7 @@ public class StorageUtils {
      * @param uri the uri
      * @return the boolean
      */
-    public static boolean sourceExists(Context context, Uri uri) {
+    public static boolean  sourceExists(Context context, Uri uri) {
         boolean exists = false;
         if (uri != null) {
             try (ParcelFileDescriptor pfd = context.
@@ -233,11 +233,6 @@ public class StorageUtils {
             }
         }
         return exists;
-    }
-
-    public static boolean fileExists(Uri uri) {
-        File file = new File(uri.getPath());
-        return file.exists();
     }
 
     public static String getFileAttrib(Uri uri, String column, Context context) {

@@ -100,5 +100,6 @@
     <string name="dialog_button_shuffle_yes">Yes, shuffle them</string>
     <string name="sort_action_copy_list">Copy</string>
     <string name="copy_list_yes">Yes</string>
+    <string name="about_group_licenses">Licenses</string>
 
 </resources>
