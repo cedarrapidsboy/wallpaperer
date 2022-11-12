@@ -39,9 +39,12 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Random;
+import java.util.Stack;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -371,21 +374,57 @@ public class StorageUtils {
     }
 
     private static final int BUFFER_SIZE = 4096;
-
-    public static void makeBackup(Collection<ImageObject> objs) throws IOException {
-        File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+    /**
+     * Create one or more ZIP files in the Downloads storage location.
+     * Each ZIP file will contain a set (1..n) of the image files referenced by objs and a manifest
+     * of the ImageObjects in the ZIP. More than one ZIP will be created if the archive exceeds
+     * 1 GiB. Each volume name will have a volume identifier incremented by 1.
+     *
+     * Backup filename examples:
+     * wallpaperer-20221111101000.zip
+     * wallpaperer-20221111101000-2.zip
+     * wallpaperer-20221111101000-3.zip
+     * @param objs images to add to this backup volume
+     * @throws IOException
+     */
+    public static void makeBackup(Collection<ImageObject> objs) throws IOException{
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
+        makeBackup(objs, "wallpaperer-"+dateString , 1);
+    }
+
+    /**
+     * Create one or more ZIP files in the Downloads storage location.
+     * Each ZIP file will contain a set (1..n) of the image files referenced by objs and a manifest
+     * of the ImageObjects in the ZIP. More than one ZIP will be created if the archive exceeds
+     * 1 GiB via this method calling itself with volNum + 1.
+     * @param objs images to add to this backup volume
+     * @param id unique identifier for this backup volume
+     * @param volNum the number of the volume being created
+     * @throws IOException
+     */
+    private static void makeBackup(Collection<ImageObject> objs, String id, int volNum) throws IOException {
+        File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        Stack<ImageObject> objStack = new Stack<>();
+        objStack.addAll(objs);
+        if (volNum < 1)
+            volNum = 1;
         String outputPath = zipDirectory.getPath()
                 + File.separator
-                + dateString
-                + "-Wallpaperer-Export.zip";
+                + id
+                + ((volNum>1)?"-" + volNum:"")
+                + ".zip";
         try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
                 new FileOutputStream(outputPath)))) {
 
             byte[] data = new byte[BUFFER_SIZE];
-            objs.forEach((obj) -> {
+            long size = 0;
+            Collection<ImageObject> processedObjs = new ArrayList<>();
+            // Limit size of each ZIP volume to 1GiB
+            while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
                 {
+                    ImageObject obj = objStack.pop();
+                    processedObjs.add(obj);
                     try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
                     BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)){
                         String filename = obj.getId();
@@ -393,16 +432,21 @@ public class StorageUtils {
                         zos.putNextEntry(entry);
                         while (bis.available() > 0){
                             int count = bis.read(data, 0, BUFFER_SIZE);
+                            size += count;
                             zos.write(data, 0, count);
                         }
                     } catch (IOException fnfe) {
                         fnfe.printStackTrace();
                     }
                 }
-            });
-            JSONArray jsonArray = ImageStore.imageObjectsToJson(objs);
+            }
+
+            JSONArray jsonArray = ImageStore.imageObjectsToJson(processedObjs);
             zos.putNextEntry(new ZipEntry("manifest.json"));
             zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
+            //If we stil have work to do then start the next volume
+            if (!objStack.isEmpty())
+                makeBackup(objStack, id, volNum + 1);
         }
     }
 
