@@ -398,7 +398,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
                 return true;
             case (R.id.menu_export):
                 try {
-                    StorageUtils.makeBackup(Arrays.stream(store.getImageObjectArray()).map(ImageObject::getUri).collect(Collectors.toList()));
+                    StorageUtils.makeBackup(store.getReferenceObjects());
                 } catch (IOException e){
                     e.printStackTrace();
                 }

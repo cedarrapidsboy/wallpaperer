@@ -119,7 +119,7 @@ public class WallpaperManager {
                             long creationDate = StorageUtils.getCreationDate(context, uri);
                             if (type.startsWith("image/")) {
                                 try {
-                                    String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+                                    String uuid = StorageUtils.getRandomAlphaNumeric(4);
                                     String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
                                     Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);

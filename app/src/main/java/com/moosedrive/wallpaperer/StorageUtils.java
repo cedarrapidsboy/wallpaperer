@@ -11,18 +11,25 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
+import android.util.JsonWriter;
 
 import androidx.exifinterface.media.ExifInterface;
 
+import org.json.JSONArray;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
@@ -34,6 +41,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Random;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -364,7 +372,7 @@ public class StorageUtils {
 
     private static final int BUFFER_SIZE = 4096;
 
-    public static void makeBackup(Collection<Uri> uris) throws IOException {
+    public static void makeBackup(Collection<ImageObject> objs) throws IOException {
         File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
@@ -376,13 +384,11 @@ public class StorageUtils {
                 new FileOutputStream(outputPath)))) {
 
             byte[] data = new byte[BUFFER_SIZE];
-            uris.forEach((uri) -> {
+            objs.forEach((obj) -> {
                 {
-                    try (FileInputStream is = new FileInputStream(uri.getPath());
+                    try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
                     BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)){
-                        String filename = uri.getPath();
-                        filename = filename.substring(filename.lastIndexOf(File.separator) + 1);
-                        filename = filename.substring(0, filename.lastIndexOf('_'));
+                        String filename = obj.getId();
                         ZipEntry entry = new ZipEntry(filename);
                         zos.putNextEntry(entry);
                         while (bis.available() > 0){
@@ -394,7 +400,31 @@ public class StorageUtils {
                     }
                 }
             });
+            JSONArray jsonArray = ImageStore.imageObjectsToJson(objs);
+            zos.putNextEntry(new ZipEntry("manifest.json"));
+            zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    /**
+     * Get a randomized string suitable for use in a file name.
+     * This has a low chance of generating two identical strings.
+     * Examples:
+     * 4-char string: 14.78 x 10^6 values
+     * 5-char string: 9.2 x 10^8 values
+     * 8-char string: 2.2 x 10^14 values
+     * @param length size of the returned string
+     * @return ^[A-Za-z0-9]{length}$
+     */
+    public static String getRandomAlphaNumeric(int length) {
+        String charLibrary = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
+        StringBuilder rndStr = new StringBuilder();
+        Random rnd = new Random();
+        while (rndStr.length() < length) {
+            int index = (int) (rnd.nextFloat() * charLibrary.length());
+            rndStr.append(charLibrary.charAt(index));
+        }
+        return rndStr.toString();
     }
 }
 
