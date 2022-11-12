@@ -199,31 +199,7 @@ public class ImageStore {
         LinkedList<ImageObject> loadedImgs = new LinkedList<>();
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-            for (int i = 0; i < imageArray.length(); i++) {
-                Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
-                try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")){
-                    Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
-                            ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
-                            :new Date();
-                    Date creationDate = (imageArray.getJSONObject(i).has("date"))
-                            ?new Date(imageArray.getJSONObject(i).getLong("date"))
-                            :new Date();
-                    ImageObject io = new ImageObject(uri,
-                            imageArray.getJSONObject(i).getString("id"),
-                            imageArray.getJSONObject(i).getString("name"),
-                            imageArray.getJSONObject(i).getLong("size"),
-                            imageArray.getJSONObject(i).getString("type"),
-                            addedDate,
-                            creationDate);
-                    io.setColor(imageArray.getJSONObject(i).getInt("color"));
-                    loadedImgs.add(io);
-                } catch (FileNotFoundException e) {
-                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
-                    e.printStackTrace();
-                } catch (NoSuchAlgorithmException | IOException | JSONException e) {
-                    e.printStackTrace();
-                }
-            }
+            loadedImgs = parseJsonArray(context, imageArray);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -231,6 +207,36 @@ public class ImageStore {
         lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
         lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
         setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
+    }
+
+    public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray) throws JSONException {
+        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
+        for (int i = 0; i < imageArray.length(); i++) {
+            Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
+            try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")){
+                Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
+                        ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
+                        :new Date();
+                Date creationDate = (imageArray.getJSONObject(i).has("date"))
+                        ?new Date(imageArray.getJSONObject(i).getLong("date"))
+                        :new Date();
+                ImageObject io = new ImageObject(uri,
+                        imageArray.getJSONObject(i).getString("id"),
+                        imageArray.getJSONObject(i).getString("name"),
+                        imageArray.getJSONObject(i).getLong("size"),
+                        imageArray.getJSONObject(i).getString("type"),
+                        addedDate,
+                        creationDate);
+                io.setColor(imageArray.getJSONObject(i).getInt("color"));
+                loadedImgs.add(io);
+            } catch (FileNotFoundException e) {
+                System.out.println("ERROR: updateFromPrefs: File no longer exists.");
+                e.printStackTrace();
+            } catch (NoSuchAlgorithmException | IOException | JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return loadedImgs;
     }
 
     /**

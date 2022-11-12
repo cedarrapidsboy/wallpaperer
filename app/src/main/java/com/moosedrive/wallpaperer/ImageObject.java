@@ -20,7 +20,12 @@ public class ImageObject {
     private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
     private final String id;
     private final String name;
-    private final Uri uri;
+
+    public void setUri(Uri uri) {
+        this.uri = uri;
+    }
+
+    private Uri uri;
     private final long size;
     private final String type;
     private final Date addedDate;

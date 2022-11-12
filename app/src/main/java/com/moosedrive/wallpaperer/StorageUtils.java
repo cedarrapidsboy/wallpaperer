@@ -11,24 +11,24 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
-import android.util.JsonWriter;
 
 import androidx.exifinterface.media.ExifInterface;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -42,15 +42,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class StorageUtils {
 
     private static final String THUMBDIR = "thumbs";
+    private static final int BUFFER_SIZE = 4096;
 
     public static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, boolean crop) {
         int sourceWidth = source.getWidth();
@@ -199,21 +201,26 @@ public class StorageUtils {
             }
             // Copy the original if requested, or if the compressed version is bigger
             if (!recompress || (maxSizeCompressed > 0 && destinationFile.length() > maxSizeCompressed)) {
-                try (InputStream input = context.getContentResolver().openInputStream(sourceUri);
-                     BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
-                    // Write to new file unchanged
-                    int originalSize = input.available();
-                    try (BufferedInputStream bis = new BufferedInputStream(input)) {
-                        byte[] buf = new byte[originalSize];
-                        //bis.read(buf);
-                        while (bis.read(buf) != -1) {
-                            bos.write(buf);
-                        }
-                    }
+                try (InputStream input = context.getContentResolver().openInputStream(sourceUri)) {
+                    writeFile(destination, input);
                 }
             }
         }
         return Uri.fromFile(new File(destinationDir + File.separator + destFileName));
+    }
+
+    private static void writeFile(String destination, InputStream input) throws IOException {
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+            // Write to new file unchanged
+            int originalSize = input.available();
+            try (BufferedInputStream bis = new BufferedInputStream(input)) {
+                byte[] buf = new byte[originalSize];
+                //bis.read(buf);
+                while (bis.read(buf) != -1) {
+                    bos.write(buf);
+                }
+            }
+        }
     }
 
     private static boolean replaceFileWithDir(String path) {
@@ -373,24 +380,24 @@ public class StorageUtils {
         return creationDate;
     }
 
-    private static final int BUFFER_SIZE = 4096;
     /**
      * Create one or more ZIP files in the Downloads storage location.
      * Each ZIP file will contain a set (1..n) of the image files referenced by objs and a manifest
      * of the ImageObjects in the ZIP. More than one ZIP will be created if the archive exceeds
      * 1 GiB. Each volume name will have a volume identifier incremented by 1.
-     *
+     * <p>
      * Backup filename examples:
      * wallpaperer-20221111101000.zip
      * wallpaperer-20221111101000-2.zip
      * wallpaperer-20221111101000-3.zip
+     *
      * @param objs images to add to this backup volume
      * @throws IOException
      */
-    public static void makeBackup(Collection<ImageObject> objs) throws IOException{
+    public static void makeBackup(Collection<ImageObject> objs) throws IOException {
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
-        makeBackup(objs, "wallpaperer-"+dateString , 1);
+        makeBackup(objs, "wallpaperer-" + dateString, 1);
     }
 
     /**
@@ -398,8 +405,9 @@ public class StorageUtils {
      * Each ZIP file will contain a set (1..n) of the image files referenced by objs and a manifest
      * of the ImageObjects in the ZIP. More than one ZIP will be created if the archive exceeds
      * 1 GiB via this method calling itself with volNum + 1.
-     * @param objs images to add to this backup volume
-     * @param id unique identifier for this backup volume
+     *
+     * @param objs   images to add to this backup volume
+     * @param id     unique identifier for this backup volume
      * @param volNum the number of the volume being created
      * @throws IOException
      */
@@ -412,7 +420,7 @@ public class StorageUtils {
         String outputPath = zipDirectory.getPath()
                 + File.separator
                 + id
-                + ((volNum>1)?"-" + volNum:"")
+                + ((volNum > 1) ? "-" + volNum : "")
                 + ".zip";
         try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
                 new FileOutputStream(outputPath)))) {
@@ -426,11 +434,11 @@ public class StorageUtils {
                     ImageObject obj = objStack.pop();
                     processedObjs.add(obj);
                     try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
-                    BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)){
+                         BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)) {
                         String filename = obj.getId();
                         ZipEntry entry = new ZipEntry(filename);
                         zos.putNextEntry(entry);
-                        while (bis.available() > 0){
+                        while (bis.available() > 0) {
                             int count = bis.read(data, 0, BUFFER_SIZE);
                             size += count;
                             zos.write(data, 0, count);
@@ -450,6 +458,51 @@ public class StorageUtils {
         }
     }
 
+    public static LinkedList<ImageObject> importBackup(Context context, Uri backupZipUri) throws IOException {
+        LinkedList<ImageObject> objs = new LinkedList<>();
+        //get manifest
+        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri))) {
+            ZipEntry zipEntry = zipIn.getNextEntry();
+            while (zipEntry != null) {
+                if (zipEntry.getName().equals("manifest.json")) {
+                    int count = 0;
+                    StringBuilder textBuilder = new StringBuilder();
+                    try (Reader reader = new BufferedReader(new InputStreamReader
+                            (zipIn, Charset.forName(StandardCharsets.UTF_8.name())))) {
+                        int c = 0;
+                        while ((c = reader.read()) != -1) {
+                            textBuilder.append((char) c);
+                        }
+                    }
+                    objs = ImageStore.parseJsonArray(context, new JSONArray(textBuilder));
+                    zipEntry = null;
+                } else {
+                    zipEntry = zipIn.getNextEntry();
+                }
+            }
+        } catch (JSONException jsonE) {
+            return null;
+        }
+        //read all files from ZIP and slot into the
+        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri))) {
+            ZipEntry zipEntry = zipIn.getNextEntry();
+            while (zipEntry != null) {
+                ZipEntry thisEntry = zipEntry; //make it effectively final for the stream
+                //check if the filename exists in the manifest
+                ImageObject img = objs.stream().filter(object -> object.getId().equals(thisEntry.getName())).findFirst().orElse(null);
+                if (img != null) {
+                    File fImageStorageFolder = StorageUtils.getStorageFolder(context);
+                    String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
+                    writeFile(destination, zipIn);
+                    img.setUri(Uri.fromFile(new File(destination)));
+                    objs.add(img);
+                }
+                zipEntry = zipIn.getNextEntry();
+            }
+        }
+        return objs;
+    }
+
     /**
      * Get a randomized string suitable for use in a file name.
      * This has a low chance of generating two identical strings.
@@ -457,6 +510,7 @@ public class StorageUtils {
      * 4-char string: 14.78 x 10^6 values
      * 5-char string: 9.2 x 10^8 values
      * 8-char string: 2.2 x 10^14 values
+     *
      * @param length size of the returned string
      * @return ^[A-Za-z0-9]{length}$
      */
