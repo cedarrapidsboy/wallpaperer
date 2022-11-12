@@ -103,5 +103,7 @@
     <string name="about_group_licenses">Licenses</string>
     <string name="action_share_no_apps_configured">No apps configured to view this item.</string>
     <string name="menu_export">Export Images</string>
+    <string name="menu_import">Import Images</string>
+    <string name="intent_chooser_select_imports">Select export file(s)</string>
 
 </resources>

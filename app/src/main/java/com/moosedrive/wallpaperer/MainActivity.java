@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements WallpaperManager.WallpaperSetListener, ImageStore.ImageStoreSortListener, RVAdapter.ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
+public class MainActivity extends AppCompatActivity implements WallpaperManager.WallpaperSetListener, ImageStore.ImageStoreSortListener, RVAdapter.ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener {
 
     final boolean isloading = false;
     private ProgressDialogFragment loadingDialog;
@@ -71,13 +72,15 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
-    private ActivityResultLauncher<Intent> someActivityResultLauncher;
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
     Bundle instanceState;
+    private ActivityResultLauncher<Intent> imageChooserResultLauncher;
+    private ActivityResultLauncher<Intent> importChooserResultLauncher;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         this.instanceState = savedInstanceState;
@@ -102,10 +105,68 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
 
-        //The image chooser dialog
-        someActivityResultLauncher = registerForActivityResult(
+        //Image Chooser
+        imageChooserResultLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
-                this);
+                result -> {
+                    HashSet<Uri> sources = new HashSet<>();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // There are no request codes
+                        Intent data = result.getData();
+                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        if (data != null) {
+                            if (data.getData() != null) {
+                                //Single select
+                                sources.add(data.getData());
+
+                            } else if (data.getClipData() != null) {
+                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                    Uri uri = data.getClipData().getItemAt(i).getUri();
+                                    sources.add(uri);
+                                }
+                            }
+                            WallpaperManager.getInstance().addWallpaperAddedListener(this);
+                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
+                        }
+                    }
+                });
+
+
+        //Import chooser
+        importChooserResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    HashSet<Uri> sources = new HashSet<>();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // There are no request codes
+                        Intent data = result.getData();
+                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        if (data != null) {
+                            if (data.getData() != null) {
+                                //Single select
+                                sources.add(data.getData());
+                            } else if (data.getClipData() != null) {
+                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                    Uri uri = data.getClipData().getItemAt(i).getUri();
+                                    sources.add(uri);
+                                }
+                            }
+                            sources.forEach(zipUri -> {
+                                try {
+                                    LinkedList<ImageObject> imported = StorageUtils.importBackup(this, zipUri);
+                                    if (imported != null)
+                                        imported.forEach(imageObject -> {
+                                            if (store.getImageObject(imageObject.getId()) == null)
+                                                store.addImageObject(imageObject);
+                                        });
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            });
+                            runOnUiThread(() -> adapter.notifyDataSetChanged());
+                        }
+                    }
+                });
 
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -399,9 +460,12 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
             case (R.id.menu_export):
                 try {
                     StorageUtils.makeBackup(store.getReferenceObjects());
-                } catch (IOException e){
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
+                return true;
+            case (R.id.menu_import):
+                openImportChooser();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -473,7 +537,23 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     /**
      * Open image chooser.
      */
+    public void openImportChooser() {
+
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("application/zip");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        //intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        importChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_imports)));
+    }
+
+    /**
+     * Open image chooser.
+     */
     public void openImageChooser() {
+
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
@@ -481,7 +561,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
         intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        someActivityResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
+        imageChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
     }
 
     private void enableSwipeToDeleteAndUndo() {
@@ -622,21 +702,23 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     }
 
     @Override
-    public void onWallpaperSetNotFound(String id){
+    public void onWallpaperSetNotFound(String id) {
         adapter.removeItem(store.getPosition(id));
         Toast.makeText(context,
                 R.string.set_wallpaper_missing_image,
                 Toast.LENGTH_SHORT).show();
     }
+
     @Override
-    public void onWallpaperSetEmpty(){
+    public void onWallpaperSetEmpty() {
         Snackbar.make(constraintLayout, R.string.set_wallpaper_no_images, Snackbar.LENGTH_LONG)
                 .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
                 .setTextColor(getColor(R.color.white))
                 .show();
     }
+
     @Override
-    public void onWallpaperSetSuccess(){
+    public void onWallpaperSetSuccess() {
         Toast.makeText(context,
                 getResources().getText(R.string.toast_wallpaper_changing),
                 Toast.LENGTH_SHORT).show();
@@ -645,7 +727,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @Override
     public void onWallpaperLoadingStarted(int size) {
         loadingDialog = ProgressDialogFragment.newInstance(size);
-        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");
+        loadingDialog.showNow(getSupportFragmentManager(), "add_progress");
     }
 
     @Override
@@ -667,31 +749,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
-        runOnUiThread(()->adapter.notifyDataSetChanged());
-    }
-
-    @Override
-    public void onActivityResult(ActivityResult result) {
-        HashSet<Uri> sources = new HashSet<>();
-        if (result.getResultCode() == Activity.RESULT_OK) {
-            // There are no request codes
-            Intent data = result.getData();
-            StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
-            if (data != null) {
-                if (data.getData() != null) {
-                    //Single select
-                    sources.add(data.getData());
-
-                } else if (data.getClipData() != null) {
-                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                        Uri uri = data.getClipData().getItemAt(i).getUri();
-                        sources.add(uri);
-                    }
-                }
-                WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
-            }
-        }
+        runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
     @SuppressLint("NotifyDataSetChanged")

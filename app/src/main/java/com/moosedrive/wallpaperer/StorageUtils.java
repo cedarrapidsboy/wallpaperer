@@ -201,7 +201,7 @@ public class StorageUtils {
             }
             // Copy the original if requested, or if the compressed version is bigger
             if (!recompress || (maxSizeCompressed > 0 && destinationFile.length() > maxSizeCompressed)) {
-                try (InputStream input = context.getContentResolver().openInputStream(sourceUri)) {
+                try (BufferedInputStream input = new BufferedInputStream(context.getContentResolver().openInputStream(sourceUri))) {
                     writeFile(destination, input);
                 }
             }
@@ -209,17 +209,16 @@ public class StorageUtils {
         return Uri.fromFile(new File(destinationDir + File.separator + destFileName));
     }
 
-    private static void writeFile(String destination, InputStream input) throws IOException {
+    private static void writeFile(String destination, BufferedInputStream bis) throws IOException {
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
             // Write to new file unchanged
-            int originalSize = input.available();
-            try (BufferedInputStream bis = new BufferedInputStream(input)) {
+            int originalSize = bis.available();
+
                 byte[] buf = new byte[originalSize];
-                //bis.read(buf);
                 while (bis.read(buf) != -1) {
                     bos.write(buf);
                 }
-            }
+
         }
     }
 
@@ -474,7 +473,7 @@ public class StorageUtils {
                             textBuilder.append((char) c);
                         }
                     }
-                    objs = ImageStore.parseJsonArray(context, new JSONArray(textBuilder));
+                    objs = ImageStore.parseJsonArray(context, new JSONArray(textBuilder.toString()), true);
                     zipEntry = null;
                 } else {
                     zipEntry = zipIn.getNextEntry();
@@ -484,7 +483,8 @@ public class StorageUtils {
             return null;
         }
         //read all files from ZIP and slot into the
-        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri))) {
+        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
+        BufferedInputStream bis = new BufferedInputStream(zipIn)) {
             ZipEntry zipEntry = zipIn.getNextEntry();
             while (zipEntry != null) {
                 ZipEntry thisEntry = zipEntry; //make it effectively final for the stream
@@ -493,9 +493,8 @@ public class StorageUtils {
                 if (img != null) {
                     File fImageStorageFolder = StorageUtils.getStorageFolder(context);
                     String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
-                    writeFile(destination, zipIn);
+                    writeFile(destination, bis);
                     img.setUri(Uri.fromFile(new File(destination)));
-                    objs.add(img);
                 }
                 zipEntry = zipIn.getNextEntry();
             }

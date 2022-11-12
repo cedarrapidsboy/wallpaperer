@@ -141,9 +141,9 @@ public class ImageStore {
     /**
      * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
      */
-    public void shuffleImages(){
+    public void shuffleImages() {
         Collections.shuffle(orderedImages);
-        if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")){
+        if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
             ImageObject swapImage = referenceImages.get(lastWallpaperId);
             orderedImages.remove(swapImage);
             orderedImages.add(0, swapImage);
@@ -161,7 +161,7 @@ public class ImageStore {
         SharedPreferences.Editor edit = prefs.edit();
         JSONArray imageArray = imageObjectsToJson(orderedImages);
         edit.putString("sources", imageArray.toString());
-        edit.putInt("sort",getSortCriteria());
+        edit.putInt("sort", getSortCriteria());
         edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
         edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
         edit.apply();
@@ -199,27 +199,39 @@ public class ImageStore {
         LinkedList<ImageObject> loadedImgs = new LinkedList<>();
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-            loadedImgs = parseJsonArray(context, imageArray);
+            loadedImgs = parseJsonArray(context, imageArray, false);
         } catch (JSONException e) {
             e.printStackTrace();
         }
         replace(loadedImgs);
         lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
         lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
-        setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
+        setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
 
-    public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray) throws JSONException {
+    public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray, boolean ignoreUri) throws JSONException {
         LinkedList<ImageObject> loadedImgs = new LinkedList<>();
         for (int i = 0; i < imageArray.length(); i++) {
             Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
-            try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")){
+            if (!ignoreUri) {
+                try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")) {
+                    int x = 0; //ignore
+                } catch (FileNotFoundException e) {
+                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
+                    e.printStackTrace();
+                    return loadedImgs;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return loadedImgs;
+                }
+            }
+            try {
                 Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
-                        ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
-                        :new Date();
+                        ? new Date(imageArray.getJSONObject(i).getLong("added_date"))
+                        : new Date();
                 Date creationDate = (imageArray.getJSONObject(i).has("date"))
-                        ?new Date(imageArray.getJSONObject(i).getLong("date"))
-                        :new Date();
+                        ? new Date(imageArray.getJSONObject(i).getLong("date"))
+                        : new Date();
                 ImageObject io = new ImageObject(uri,
                         imageArray.getJSONObject(i).getString("id"),
                         imageArray.getJSONObject(i).getString("name"),
@@ -229,10 +241,7 @@ public class ImageStore {
                         creationDate);
                 io.setColor(imageArray.getJSONObject(i).getInt("color"));
                 loadedImgs.add(io);
-            } catch (FileNotFoundException e) {
-                System.out.println("ERROR: updateFromPrefs: File no longer exists.");
-                e.printStackTrace();
-            } catch (NoSuchAlgorithmException | IOException | JSONException e) {
+            } catch (NoSuchAlgorithmException | JSONException | IOException e) {
                 e.printStackTrace();
             }
         }
@@ -338,9 +347,10 @@ public class ImageStore {
 
     /**
      * Get all ImageObject items in the library
+     *
      * @return A new collection of the objects
      */
-    public synchronized  Collection<ImageObject> getReferenceObjects() {
+    public synchronized Collection<ImageObject> getReferenceObjects() {
         return new ArrayList<>(referenceImages.values());
     }
 
@@ -349,7 +359,7 @@ public class ImageStore {
      *
      * @param col the col
      */
-    public void replace(Collection<ImageObject> col){
+    public void replace(Collection<ImageObject> col) {
         store.clear(true);
         col.forEach(this::addImageObject);
     }
@@ -432,8 +442,8 @@ public class ImageStore {
      * @param newPos the new pos
      * @return the boolean
      */
-    public boolean moveImageObject(ImageObject object, int newPos){
-        if (referenceImages.containsKey(object.getId())){
+    public boolean moveImageObject(ImageObject object, int newPos) {
+        if (referenceImages.containsKey(object.getId())) {
             String previousActiveId = lastWallpaperId;
             delImageObject(object.getId());
             if (previousActiveId.equals(object.getId()))
