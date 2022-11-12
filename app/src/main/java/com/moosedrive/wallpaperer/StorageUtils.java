@@ -1,5 +1,6 @@
 package com.moosedrive.wallpaperer;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -7,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 
@@ -15,6 +17,8 @@ import androidx.exifinterface.media.ExifInterface;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,8 +29,13 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.Date;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class StorageUtils {
 
@@ -98,7 +107,7 @@ public class StorageUtils {
     }
 
     public static String getHash(Context context, Uri uri) {
-        try (InputStream source = context.getContentResolver().openInputStream(uri)){
+        try (InputStream source = context.getContentResolver().openInputStream(uri)) {
 
             return getSHA256(source, 1024);
         } catch (Exception e) {
@@ -130,28 +139,28 @@ public class StorageUtils {
     public static Uri saveThumbnail(Context context, Uri sourceuri, String destFileName) throws IOException {
         String destinationDir = getStorageFolder(context).getPath() + File.separator + THUMBDIR;
         boolean directorySetupResult;
-            File destDir = new File(destinationDir);
-            if (!destDir.exists()) {
-                directorySetupResult = destDir.mkdirs();
-            } else if (!destDir.isDirectory()) {
-                directorySetupResult = replaceFileWithDir(destinationDir);
-            } else {
-                directorySetupResult = true;
-            }
-            if (directorySetupResult) {
-                String destination = destinationDir + File.separator + destFileName;
-                File destinationFile = new File(destination);
+        File destDir = new File(destinationDir);
+        if (!destDir.exists()) {
+            directorySetupResult = destDir.mkdirs();
+        } else if (!destDir.isDirectory()) {
+            directorySetupResult = replaceFileWithDir(destinationDir);
+        } else {
+            directorySetupResult = true;
+        }
+        if (directorySetupResult) {
+            String destination = destinationDir + File.separator + destFileName;
+            File destinationFile = new File(destination);
 
-                try (InputStream input = context.getContentResolver().openInputStream(sourceuri);
-                BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
-                    // Recompress before writing to new file
-                    Bitmap originalBm = BitmapFactory.decodeStream(input);
-                    originalBm = resizeBitmapCenter(512, 512, originalBm, true);
-                    originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
-                    return Uri.fromFile(destinationFile);
-                }
-
+            try (InputStream input = context.getContentResolver().openInputStream(sourceuri);
+                 BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+                // Recompress before writing to new file
+                Bitmap originalBm = BitmapFactory.decodeStream(input);
+                originalBm = resizeBitmapCenter(512, 512, originalBm, true);
+                originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
+                return Uri.fromFile(destinationFile);
             }
+
+        }
         return null;
     }
 
@@ -218,15 +227,15 @@ public class StorageUtils {
      * Checks if the storage item for the image exists.
      *
      * @param context Application context
-     * @param uri the uri
+     * @param uri     the uri
      * @return the boolean
      */
-    public static boolean  sourceExists(Context context, Uri uri) {
+    public static boolean sourceExists(Context context, Uri uri) {
         boolean exists = false;
         if (uri != null) {
             try (ParcelFileDescriptor pfd = context.
                     getContentResolver().
-                    openFileDescriptor(uri, "r")){
+                    openFileDescriptor(uri, "r")) {
                 exists = pfd != null;
             } catch (IOException e) {
                 e.printStackTrace();
@@ -352,4 +361,40 @@ public class StorageUtils {
         }
         return creationDate;
     }
+
+    private static final int BUFFER_SIZE = 4096;
+
+    public static void makeBackup(Collection<Uri> uris) throws IOException {
+        File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+        String dateString = dateFormat.format(new Date());
+        String outputPath = zipDirectory.getPath()
+                + File.separator
+                + dateString
+                + "-Wallpaperer-Export.zip";
+        try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
+                new FileOutputStream(outputPath)))) {
+
+            byte[] data = new byte[BUFFER_SIZE];
+            uris.forEach((uri) -> {
+                {
+                    try (FileInputStream is = new FileInputStream(uri.getPath());
+                    BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)){
+                        String filename = uri.getPath();
+                        filename = filename.substring(filename.lastIndexOf(File.separator) + 1);
+                        filename = filename.substring(0, filename.lastIndexOf('_'));
+                        ZipEntry entry = new ZipEntry(filename);
+                        zos.putNextEntry(entry);
+                        while (bis.available() > 0){
+                            int count = bis.read(data, 0, BUFFER_SIZE);
+                            zos.write(data, 0, count);
+                        }
+                    } catch (IOException fnfe) {
+                        fnfe.printStackTrace();
+                    }
+                }
+            });
+        }
+    }
 }
+

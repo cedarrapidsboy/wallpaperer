@@ -50,10 +50,13 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
@@ -392,6 +395,13 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
                 return true;
             case (R.id.menu_goto):
                 runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                return true;
+            case (R.id.menu_export):
+                try {
+                    StorageUtils.makeBackup(Arrays.stream(store.getImageObjectArray()).map(ImageObject::getUri).collect(Collectors.toList()));
+                } catch (IOException e){
+                    e.printStackTrace();
+                }
                 return true;
             default:
                 return super.onOptionsItemSelected(item);

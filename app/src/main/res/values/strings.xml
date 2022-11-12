@@ -102,5 +102,6 @@
     <string name="copy_list_yes">Yes</string>
     <string name="about_group_licenses">Licenses</string>
     <string name="action_share_no_apps_configured">No apps configured to view this item.</string>
+    <string name="menu_export">Export Images</string>
 
 </resources>
