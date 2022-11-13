@@ -14,6 +14,8 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 
+import com.moosedrive.wallpaperer.utils.PreferenceHelper;
+
 import java.util.Date;
 
 public class TimerArc extends View {

@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.utils;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -13,6 +13,10 @@ import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 
 import androidx.exifinterface.media.ExifInterface;
+
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.WallpaperManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -393,10 +397,10 @@ public class StorageUtils {
      * @param objs images to add to this backup volume
      * @throws IOException
      */
-    public static void makeBackup(Collection<ImageObject> objs) throws IOException {
+    public static void makeBackup(Collection<ImageObject> objs, IExportListener listener) throws IOException {
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
-        makeBackup(objs, "wallpaperer-" + dateString, 1);
+        makeBackup(objs, "wallpaperer-" + dateString, 1, listener);
     }
 
     /**
@@ -410,7 +414,8 @@ public class StorageUtils {
      * @param volNum the number of the volume being created
      * @throws IOException
      */
-    private static void makeBackup(Collection<ImageObject> objs, String id, int volNum) throws IOException {
+    private static void makeBackup(Collection<ImageObject> objs, String id, int volNum, IExportListener listener) throws IOException {
+        listener.onExportStarted(objs.size(), "Exporting images to Downloads directory..." + ((volNum>1)?"\nVolume " + volNum:""));
         File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         Stack<ImageObject> objStack = new Stack<>();
         objStack.addAll(objs);
@@ -430,6 +435,7 @@ public class StorageUtils {
             // Limit size of each ZIP volume to 1GiB
             while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
                 {
+                    listener.onExportIncrement(1);
                     ImageObject obj = objStack.pop();
                     processedObjs.add(obj);
                     try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
@@ -443,6 +449,7 @@ public class StorageUtils {
                             zos.write(data, 0, count);
                         }
                     } catch (IOException fnfe) {
+                        listener.onExportFinished(IExportListener.ERROR, "Error writing export archive.");
                         fnfe.printStackTrace();
                     }
                 }
@@ -451,16 +458,18 @@ public class StorageUtils {
             JSONArray jsonArray = ImageStore.imageObjectsToJson(processedObjs);
             zos.putNextEntry(new ZipEntry("manifest.json"));
             zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
+            listener.onExportFinished(IExportListener.SUCCESS, null);
             //If we stil have work to do then start the next volume
             if (!objStack.isEmpty())
-                makeBackup(objStack, id, volNum + 1);
+                makeBackup(objStack, id, volNum + 1, listener);
         }
     }
 
-    public static LinkedList<ImageObject> importBackup(Context context, Uri backupZipUri, WallpaperManager.WallpaperAddedListener progressListener) throws IOException {
+    public static void importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, WallpaperManager.WallpaperAddedListener progressListener) throws IOException {
         LinkedList<ImageObject> objs = new LinkedList<>();
         //get manifest
-        progressListener.onWallpaperLoadingStarted(Integer.MAX_VALUE);
+        progressListener.onWallpaperLoadingStarted(Integer.MAX_VALUE, "Importing images" + ((count > 1)?" (archive "+index+" of "+count+")":"")+"...");
+        progressListener.onWallpaperLoadingIncrement(-1);
         int size = 0;
         try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
              Reader reader = new BufferedReader(new InputStreamReader
@@ -468,7 +477,6 @@ public class StorageUtils {
             ZipEntry zipEntry = zipIn.getNextEntry();
             while (zipEntry != null) {
                 if (zipEntry.getName().equals("manifest.json")) {
-                    int count = 0;
                     StringBuilder textBuilder = new StringBuilder();
                     int c = 0;
                         while ((c = reader.read()) != -1) {
@@ -483,29 +491,35 @@ public class StorageUtils {
                 }
             }
         } catch (JSONException jsonE) {
-            return null;
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, "Invalid manifest in the archive (JSON error).");
+            objs.clear();
         }
-        progressListener.onWallpaperLoadingIncrement(1);
-        //read all files from ZIP and slot into the
-        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
-        BufferedInputStream bis = new BufferedInputStream(zipIn)) {
-            ZipEntry zipEntry = zipIn.getNextEntry();
-            while (zipEntry != null) {
-                ZipEntry thisEntry = zipEntry; //make it effectively final for the stream
-                //check if the filename exists in the manifest
-                ImageObject img = objs.stream().filter(object -> object.getId().equals(thisEntry.getName())).findFirst().orElse(null);
-                if (img != null) {
-                    progressListener.onWallpaperLoadingIncrement(Math.round((1F / size) * (Integer.MAX_VALUE - 1)));
-                    File fImageStorageFolder = StorageUtils.getStorageFolder(context);
-                    String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
-                    writeFile(destination, bis);
-                    img.setUri(Uri.fromFile(new File(destination)));
+        if (objs.size() > 0) {
+            int increment = Math.round((1F / size) * (Integer.MAX_VALUE));
+            progressListener.onWallpaperLoadingIncrement(increment);
+            //read all files from ZIP and slot into the
+            try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
+                 BufferedInputStream bis = new BufferedInputStream(zipIn)) {
+                ZipEntry zipEntry = zipIn.getNextEntry();
+                while (zipEntry != null) {
+                    ZipEntry thisEntry = zipEntry; //make it effectively final for the stream
+                    //check if the filename exists in the manifest
+                    progressListener.onWallpaperLoadingIncrement(increment);
+                    ImageObject img = objs.stream().filter(object -> object.getId().equals(thisEntry.getName())).findFirst().orElse(null);
+                    if (img != null && store.getImageObject(img.getId()) == null) {
+                        File fImageStorageFolder = StorageUtils.getStorageFolder(context);
+                        String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
+                        writeFile(destination, bis);
+                        img.setUri(Uri.fromFile(new File(destination)));
+                        store.addImageObject(img);
+                    }
+                    zipEntry = zipIn.getNextEntry();
                 }
-                zipEntry = zipIn.getNextEntry();
             }
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.SUCCESS, null);
+        } else {
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, "Nothing to do. The images defined in the manifest are not found in the archive.");
         }
-        progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.SUCCESS, null);
-        return objs;
     }
 
     /**

@@ -10,6 +10,9 @@ import android.os.Looper;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+
 import java.util.HashSet;
 
 public class IncomingIntentActivity extends AppCompatActivity implements WallpaperManager.WallpaperAddedListener {
@@ -71,19 +74,22 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
     ProgressDialogFragment loadingDialog;
 
     @Override
-    public void onWallpaperLoadingStarted(int size) {
-        loadingDialog = ProgressDialogFragment.newInstance(size);
-        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");
+    public void onWallpaperLoadingStarted(int size, String msg) {
+        runOnUiThread(() -> {loadingDialog = ProgressDialogFragment.newInstance(size);
+        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");});
     }
 
     @Override
     public void onWallpaperLoadingIncrement(int inc) {
-        loadingDialog.incrementProgressBy(inc);
+        runOnUiThread(() -> loadingDialog.incrementProgressBy(inc));
     }
 
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
-        loadingDialog.dismiss();
+        runOnUiThread(()->{
+            if (loadingDialog != null)
+                loadingDialog.dismiss();
+        });
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs(this);
         if (status != WallpaperManager.WallpaperAddedListener.SUCCESS) {

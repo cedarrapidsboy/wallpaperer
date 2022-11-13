@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.data;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -6,6 +6,8 @@ import android.net.Uri;
 import android.provider.MediaStore;
 
 import androidx.palette.graphics.Palette;
+
+import com.moosedrive.wallpaperer.utils.StorageUtils;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;

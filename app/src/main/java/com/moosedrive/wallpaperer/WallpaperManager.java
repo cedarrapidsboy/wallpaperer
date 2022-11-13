@@ -7,6 +7,11 @@ import android.provider.DocumentsContract;
 
 import androidx.annotation.NonNull;
 
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
+import com.moosedrive.wallpaperer.utils.StorageUtils;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -98,7 +103,7 @@ public class WallpaperManager {
         if (sources.size() > 0) {
             loadingDoneSignal = new CountDownLatch(sources.size());
             for (WallpaperAddedListener wal : wallpaperAddedListeners)
-                wal.onWallpaperLoadingStarted(sources.size());
+                wal.onWallpaperLoadingStarted(sources.size(), null);
             for (Uri uri : sources) {
                 Thread t = new Thread(() -> {
                     File fImageStorageFolder = StorageUtils.getStorageFolder(context);
@@ -205,7 +210,7 @@ public class WallpaperManager {
          *
          * @param size the size
          */
-        void onWallpaperLoadingStarted(int size);
+        void onWallpaperLoadingStarted(int size, String message);
 
         /**
          * On wallpaper loading increment.

@@ -1,9 +1,11 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 
 import androidx.preference.PreferenceManager;
+
+import com.moosedrive.wallpaperer.R;
 
 /**
  * The type Preference helper.

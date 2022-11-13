@@ -23,8 +23,6 @@ import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -48,36 +46,48 @@ import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
+import com.moosedrive.wallpaperer.utils.IExportListener;
+import com.moosedrive.wallpaperer.utils.PreferenceHelper;
+import com.moosedrive.wallpaperer.utils.StorageUtils;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements WallpaperManager.WallpaperSetListener, ImageStore.ImageStoreSortListener, RVAdapter.ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener {
+public class MainActivity extends AppCompatActivity
+        implements WallpaperManager.WallpaperSetListener,
+        ImageStore.ImageStoreSortListener,
+        RVAdapter.ItemClickListener,
+        SharedPreferences.OnSharedPreferenceChangeListener,
+        WallpaperManager.WallpaperAddedListener,
+        IExportListener
+{
 
     final boolean isloading = false;
-    private ProgressDialogFragment loadingDialog;
     RecyclerView rv;
     ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
+    Bundle instanceState;
+    RecyclerViewPreloader<ImageObject> preloader;
+    private ProgressDialogFragment loadingDialog;
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
-    Bundle instanceState;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
     private ActivityResultLauncher<Intent> importChooserResultLauncher;
 
@@ -188,20 +198,17 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
                                     sources.add(uri);
                                 }
                             }
-                            BackgroundExecutor.getExecutor().execute(()-> {
+                            BackgroundExecutor.getExecutor().execute(() -> {
+                                AtomicInteger i = new AtomicInteger(1);
+                                int count = sources.size();
                                 sources.forEach(zipUri -> {
                                     try {
-
-                                        LinkedList<ImageObject> imported = StorageUtils.importBackup(this, zipUri, this);
-                                        if (imported != null)
-                                            imported.forEach(imageObject -> {
-                                                if (store.getImageObject(imageObject.getId()) == null)
-                                                    store.addImageObject(imageObject);
-                                            });
+                                        StorageUtils.importBackup(this, zipUri, store, i.get(), sources.size(), this);
                                     } catch (IOException e) {
                                         e.printStackTrace();
                                         onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, e.getMessage());
                                     }
+                                    i.getAndIncrement();
                                 });
                             });
                         }
@@ -322,8 +329,6 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
             rv.addOnScrollListener(preloader);
         }
     }
-
-    RecyclerViewPreloader<ImageObject> preloader;
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -473,11 +478,14 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
                 runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
                 return true;
             case (R.id.menu_export):
-                try {
-                    StorageUtils.makeBackup(store.getReferenceObjects());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                BackgroundExecutor.getExecutor().execute(() -> {
+                    try {
+                        StorageUtils.makeBackup(store.getReferenceObjects(), this);
+                    } catch (IOException e) {
+                        onExportFinished(IExportListener.ERROR, "Error exporting images: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
                 return true;
             case (R.id.menu_import):
                 openImportChooser();
@@ -740,21 +748,33 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     }
 
     @Override
-    public void onWallpaperLoadingStarted(int size) {
-        loadingDialog = ProgressDialogFragment.newInstance(size);
-        runOnUiThread(()-> loadingDialog.showNow(getSupportFragmentManager(), "add_progress"));
+    public void onWallpaperLoadingStarted(int size, String message) {
+        runOnUiThread(() -> {
+            loadingDialog = ProgressDialogFragment.newInstance(size);
+            loadingDialog.showNow(getSupportFragmentManager(), "add_progress");
+            if (message != null){
+                loadingDialog.setMessage(message);
+            }
+        });
     }
 
     @Override
     public void onWallpaperLoadingIncrement(int inc) {
-        loadingDialog.incrementProgressBy(inc);
+        runOnUiThread(() -> {
+            if (inc < 0)
+                loadingDialog.setIndeterminate(true);
+            else {
+                loadingDialog.setIndeterminate(false);
+                loadingDialog.incrementProgressBy(inc);
+            }
+        });
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
         if (loadingDialog != null)
-            loadingDialog.dismiss();
+            runOnUiThread(() -> loadingDialog.dismiss());
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs(context);
         invalidateOptionsMenu();
@@ -775,4 +795,45 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
             runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
+    @Override
+    public void onExportStarted(int size, String message) {
+        runOnUiThread(() -> {
+            loadingDialog = ProgressDialogFragment.newInstance(size);
+            loadingDialog.showNow(getSupportFragmentManager(), "export_progress");
+            if (message != null){
+                loadingDialog.setMessage(message);
+            }
+        });
+    }
+
+    @Override
+    public void onExportIncrement(int inc) {
+        runOnUiThread(() -> {
+            if (inc < 0)
+                loadingDialog.setIndeterminate(true);
+            else {
+                loadingDialog.setIndeterminate(false);
+                loadingDialog.incrementProgressBy(inc);
+            }
+        });
+    }
+
+    @Override
+    public void onExportFinished(int status, String message) {
+        if (loadingDialog != null)
+            runOnUiThread(() -> loadingDialog.dismiss());
+        invalidateOptionsMenu();
+        if (status != WallpaperManager.WallpaperAddedListener.SUCCESS) {
+            new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
+                    .setTitle("Error(s) exporting images")
+                    .setMessage((message != null) ? message : "Unknown error.")
+                    .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
+                    .show());
+        } else {
+            Snackbar.make(constraintLayout, "Export complete.", Snackbar.LENGTH_LONG)
+                    .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
+                    .setTextColor(getColor(R.color.white))
+                    .show();
+        }
+    }
 }

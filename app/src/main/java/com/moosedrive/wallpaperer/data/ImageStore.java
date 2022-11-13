@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -8,6 +8,8 @@ import android.preference.PreferenceManager;
 
 import androidx.annotation.NonNull;
 
+import com.moosedrive.wallpaperer.R;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,7 +17,6 @@ import org.json.JSONObject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -301,7 +302,7 @@ public class ImageStore {
      * Gets image object.
      *
      * @param id the id
-     * @return the image object
+     * @return the image object or null if not found
      */
     public synchronized ImageObject getImageObject(String id) {
         return referenceImages.get(id);

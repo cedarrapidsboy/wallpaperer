@@ -22,6 +22,11 @@ import androidx.work.WorkRequest;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.PreferenceHelper;
+import com.moosedrive.wallpaperer.utils.StorageUtils;
+
 import java.io.IOException;
 import java.util.Date;
 import java.util.concurrent.CancellationException;
