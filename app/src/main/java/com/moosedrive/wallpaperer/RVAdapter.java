@@ -21,7 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.constraintlayout.helper.widget.Flow;
 import androidx.core.content.FileProvider;
-import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -29,6 +28,10 @@ import com.bumptech.glide.ListPreloader;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.card.MaterialCardView;
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
+import com.moosedrive.wallpaperer.utils.PreferenceHelper;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -46,17 +49,25 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     final ImageStore store;
     final Context context;
     private ItemClickListener clickListener;
+    private final int columns;
 
-    public RVAdapter(Context context) {
-        this.store = ImageStore.getInstance();
+    public RVAdapter(Context context, ImageStore store, int columns) {
+        this.store = store;
         this.context = context;
+        this.columns = columns;
     }
 
-    public static int getCardSize(Context context) {
+    /**
+     * Get the square dimension of the card given the desired number of columns.
+     * This method returns R.dimen.card_size_min or greater. Because of this minimum, the returned
+     * size may not fit in the desired screen space depending on column count.
+     * @param context the context
+     * @return largest of width of card based on desired columns or R.dimen.card_size_min
+     */
+    public static int getCardSize(Context context, int columns) {
         //int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
         int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
         //int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString("preference_columns", "2"));
-        int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getString(R.string.preference_columns), "2"));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
         // Set lower limit on thumbnail size (need space for buttons and metadata text) based on display size
         if (width / columns < (int) context.getResources().getDimension(R.dimen.card_size_min))
@@ -92,7 +103,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         String type = img.getType();
         String name = img.getName();
         Date date = img.getCreationDate();
-        boolean showStats = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_card_stats), false);
+        boolean showStats = PreferenceHelper.showStats(context);
         holder.tvFileName.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
         holder.flowStats.setVisibility((showStats) ? View.VISIBLE : View.INVISIBLE);
         holder.flowStats.setBackgroundColor(color);
@@ -101,7 +112,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         holder.tvDate.setText(sDate);
         holder.tvType.setText(Html.fromHtml(type, Html.FROM_HTML_MODE_COMPACT));
         holder.tvSize.setText(String.format(Locale.US, context.getString(R.string.file_size), img.getSize() / (1024.0 * 1024.0)));
-        int squareDimen = getCardSize(context);
+        int squareDimen = getCardSize(context,columns);
         holder.itemView.getLayoutParams().width = squareDimen;
         holder.itemView.getLayoutParams().height = squareDimen;
         Glide
@@ -127,7 +138,6 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Override
     public void onViewRecycled(@NonNull ImageHolder holder) {
-        //Glide.with(context).clear(holder.ivImage);
         super.onViewRecycled(holder);
     }
 
@@ -163,7 +173,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @Nullable
     @Override
     public RequestBuilder<Drawable> getPreloadRequestBuilder(@NonNull ImageObject img) {
-        int width = getCardSize(context);
+        int width = getCardSize(context, columns);
         //This needs to be identical (except "into") to the onBind glide builder
         return Glide.with(context)
                 .load(img.getThumbUri(context))
@@ -225,7 +235,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
                 if (intent.resolveActivity(packageManager) != null)
                     context.startActivity(intent);
                 else
-                    Toast.makeText(context, "No apps configured to view this item.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, context.getString(R.string.action_share_no_apps_configured), Toast.LENGTH_SHORT).show();
             }
         }
     }

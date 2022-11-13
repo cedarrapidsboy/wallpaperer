@@ -7,6 +7,8 @@ import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
+
 import java.text.MessageFormat;
 import java.util.Locale;
 
@@ -42,7 +44,7 @@ public class AboutActivity extends AppCompatActivity {
                 .addItem(storageElement)
                 .addGroup(getString(R.string.about_social_title))
                 .addGitHub(getString(R.string.about_github_user))
-                .addGroup("Licenses")
+                .addGroup(getString(R.string.about_group_licenses))
                 .addItem(licenseElement)
                 .create();
 

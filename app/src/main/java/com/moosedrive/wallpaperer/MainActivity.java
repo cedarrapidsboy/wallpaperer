@@ -1,7 +1,5 @@
 package com.moosedrive.wallpaperer;
 
-import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -14,20 +12,18 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.ParcelFileDescriptor;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.widget.Adapter;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -51,6 +47,14 @@ import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
+import com.moosedrive.wallpaperer.utils.IExportListener;
+import com.moosedrive.wallpaperer.utils.PreferenceHelper;
+import com.moosedrive.wallpaperer.utils.StorageUtils;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperWorker;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
 import java.io.IOException;
@@ -58,28 +62,36 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
 /**
  * The type Main activity.
  */
-public class MainActivity extends AppCompatActivity implements ImageStore.ImageStoreSortListener, RVAdapter.ItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener, WallpaperManager.WallpaperAddedListener, ActivityResultCallback<ActivityResult> {
+public class MainActivity extends AppCompatActivity
+        implements WallpaperManager.WallpaperSetListener,
+        ImageStore.ImageStoreSortListener,
+        RVAdapter.ItemClickListener,
+        SharedPreferences.OnSharedPreferenceChangeListener,
+        WallpaperManager.IWallpaperAddedListener
+{
 
     final boolean isloading = false;
-    private ProgressDialogFragment loadingDialog;
     RecyclerView rv;
     ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
-    int lastAddedPosition = -1;
-    private ActivityResultLauncher<Intent> someActivityResultLauncher;
+    Bundle instanceState;
+    RecyclerViewPreloader<ImageObject> preloader;
+    private ProgressDialogFragment loadingDialog;
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
-    Bundle instanceState;
+    private ActivityResultLauncher<Intent> imageChooserResultLauncher;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         this.instanceState = savedInstanceState;
@@ -104,10 +116,8 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
 
-        //The image chooser dialog
-        someActivityResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                this);
+        //Image Chooser
+        registerImageChooser();
 
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -135,10 +145,42 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         }
     }
 
+    /**
+     * For when the (+) button is clicked we need an image chooser
+     */
+    private void registerImageChooser() {
+        imageChooserResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    HashSet<Uri> sources = new HashSet<>();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // There are no request codes
+                        Intent data = result.getData();
+                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        if (data != null) {
+                            if (data.getData() != null) {
+                                //Single select
+                                sources.add(data.getData());
+
+                            } else if (data.getClipData() != null) {
+                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                    Uri uri = data.getClipData().getItemAt(i).getUri();
+                                    sources.add(uri);
+                                }
+                            }
+                            WallpaperManager.getInstance().addWallpaperAddedListener(this);
+                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
+                        }
+                    }
+                });
+    }
+
+
     @SuppressLint("NotifyDataSetChanged")
     @Override
     protected void onResume() {
         super.onResume();
+        WallpaperManager.getInstance().addWallpaperSetListener(this);
         adapter.notifyDataSetChanged();
     }
 
@@ -203,11 +245,11 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     @SuppressLint("NotifyDataSetChanged")
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
-        adapter = new RVAdapter(context);
+        adapter = new RVAdapter(context, store, PreferenceHelper.getGridLayoutColumns(context));
         int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
         int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
-        int columns = width / RVAdapter.getCardSize(context);
-        int rows = height / RVAdapter.getCardSize(context);
+        int columns = width / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
+        int rows = height / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
         rv.setLayoutManager(
                 new GridLayoutManager(context
                         , columns > 0 ? columns : 1));
@@ -231,20 +273,21 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                     gInstance.clearMemory();
                 });
                 for (ImageObject obj : store.getImageObjectArray())
-                    if (!StorageUtils.fileExists(obj.getUri()))
+                    if (!StorageUtils.sourceExists(this, obj.getUri()))
                         store.delImageObject(obj.getId());
                 runOnUiThread(() -> adapter.notifyDataSetChanged());
                 //Save aftr refresh -- otherwise data will be saved onPause()
                 store.saveToPrefs(context);
                 swipeLayout.setRefreshing(false);
             });
-
         });
         new FastScrollerBuilder(rv).useMd2Style().build();
-        ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context), RVAdapter.getCardSize(context));
-        //Pre-loader loads images into the Glide memory cache while they are still off screen
-        RecyclerViewPreloader<ImageObject> preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
-        rv.addOnScrollListener(preloader);
+        if (preloader == null) {
+            ListPreloader.PreloadSizeProvider<ImageObject> sizeProvider = new FixedPreloadSizeProvider<>(RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context)), RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context)));
+            //Pre-loader loads images into the Glide memory cache while they are still off screen
+            preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
+            rv.addOnScrollListener(preloader);
+        }
     }
 
     @Override
@@ -278,8 +321,16 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        store.saveToPrefs(this);
+    }
+
+    @Override
     protected void onDestroy() {
         store.removeSortListener(this);
+        rv.removeOnScrollListener(preloader);
+        WallpaperManager.getInstance().removeWallpaperSetListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
         if (itemMoveHelper != null)
             itemMoveHelper.attachToRecyclerView(null);
@@ -311,7 +362,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper));
                     else
                         itemView.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_random_wallpaper_bad));
-                setSingleWallpaper(null);
+                WallpaperManager.getInstance().setSingleWallpaper(this, null);
                 return true;
             case (R.id.sort):
                 View sortOption = findViewById(R.id.sort);
@@ -391,54 +442,6 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         }
     }
 
-    /**
-     * Checks if the storage item for the image exists.
-     *
-     * @param imageId the image id
-     * @return the boolean
-     */
-    public boolean sourceExists(String imageId) {
-        boolean exists = false;
-        ImageObject img = store.getImageObject(imageId);
-        if (img != null) {
-            Uri uri = img.getUri();
-            try (ParcelFileDescriptor pfd = context.
-                    getContentResolver().
-                    openFileDescriptor(uri, "r")){
-                exists = pfd != null;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return exists;
-    }
-
-    /**
-     * Sets single wallpaper as soon as possible.
-     *
-     * @param imgObjectId the img object id
-     */
-    public void setSingleWallpaper(String imgObjectId) {
-        if (store.size() == 0) {
-            Snackbar.make(constraintLayout, R.string.set_wallpaper_no_images, Snackbar.LENGTH_LONG)
-                    .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                    .setTextColor(getColor(R.color.white))
-                    .show();
-        } else {
-            if (imgObjectId != null && !sourceExists(imgObjectId)) {
-                adapter.removeItem(store.getPosition(imgObjectId));
-                //StorageUtils.releasePersistableUriPermission(getBaseContext(), images.getImageObject(imgObjectId).getUri());
-                Toast.makeText(context,
-                        R.string.set_wallpaper_missing_image,
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                WallpaperWorker.changeWallpaperNow(context, imgObjectId);
-                Toast.makeText(context,
-                        getResources().getText(R.string.toast_wallpaper_changing),
-                        Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
 
     /**
      * Delete all images from view and from storage. Original source (from the add button)
@@ -505,6 +508,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
      * Open image chooser.
      */
     public void openImageChooser() {
+
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
@@ -512,7 +516,7 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
         intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        someActivityResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
+        imageChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
     }
 
     private void enableSwipeToDeleteAndUndo() {
@@ -564,77 +568,27 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
             }
         };
 
-        ItemTouchHelper.SimpleCallback simpleCallback =
-                new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP
-                        | ItemTouchHelper.DOWN
-                        | ItemTouchHelper.LEFT
-                        | ItemTouchHelper.RIGHT
-                        | ItemTouchHelper.START
-                        | ItemTouchHelper.END, 0) {
-                    boolean drag = false;
-                    View draggedView;
-                    @Override
-                    public void onSelectedChanged(RecyclerView.ViewHolder viewHolder, int actionState) {
-                        super.onSelectedChanged(viewHolder, actionState);
-
-                        if(actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
-                            drag = true;
-                            draggedView = viewHolder.itemView;
-                            //scaleView(viewHolder.itemView, 1.10f);
-                            scaleOthers( draggedView, 0.9f);
-                        }
-                        if(actionState == ItemTouchHelper.ACTION_STATE_IDLE && drag && draggedView != null) {
-                            //scaleView(draggedView, 1f);
-                            scaleOthers( draggedView, 1f);
-                            drag= false;
-                        }
+        DragToMoveCallback dragCallback = new DragToMoveCallback(rv) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
+                    int fromPosition = viewHolder.getBindingAdapterPosition();
+                    int toPosition = target.getBindingAdapterPosition();
+                    if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
+                        runOnUiThread(() -> {
+                            RVAdapter rvAdapter = (RVAdapter) recyclerView.getAdapter();
+                            if (rvAdapter != null)
+                                rvAdapter.notifyItemMoved(fromPosition, toPosition);
+                        });
+                        return true;
                     }
-
-                    private void scaleView(@NonNull View viewHolder, float x) {
-                        ObjectAnimator scaleUp = ObjectAnimator.ofPropertyValuesHolder(
-                                viewHolder,
-                                PropertyValuesHolder.ofFloat("scaleX", x),
-                                PropertyValuesHolder.ofFloat("scaleY", x)
-                        );
-                        scaleUp.setDuration(100);
-                        scaleUp.start();
-                    }
-
-                    private void scaleOthers(View excludeView, float scale) {
-                        int otherCards = rv.getChildCount();
-                        for (int i = 0; i < otherCards; i++){
-                            View otherCard = rv.getChildAt(i);
-                            if (otherCard != null && otherCard != excludeView){
-                                RecyclerView.ViewHolder vHolder = rv.getChildViewHolder(otherCard);
-                                if (vHolder != null){
-                                    scaleView(vHolder.itemView, scale);
-                                }
-                            }
-                        }
-                    }
-
-                    @Override
-                    public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
-                        if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
-                            int fromPosition = viewHolder.getBindingAdapterPosition();
-                            int toPosition = target.getBindingAdapterPosition();
-                            if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
-                                store.setLastWallpaperPos(toPosition);
-                                runOnUiThread(() -> adapter.notifyItemMoved(fromPosition, toPosition));
-                                return true;
-                            }
-                        }
-                        return false;
-                    }
-
-                    @Override
-                    public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-
-                    }
-                };
+                }
+                return false;
+            }
+        };
 
         if (itemMoveHelper == null)
-            itemMoveHelper = new ItemTouchHelper(simpleCallback);
+            itemMoveHelper = new ItemTouchHelper(dragCallback);
         if (itemSwipeHelper == null)
             itemSwipeHelper = new ItemTouchHelper(swipeToDeleteCallback);
         itemMoveHelper.attachToRecyclerView(null);
@@ -646,18 +600,14 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
     @Override
     public void onSetWpClick(int position) {
         invalidateOptionsMenu();
-        setSingleWallpaper(store.getImageObject(position).getId());
+        WallpaperManager.getInstance().setSingleWallpaper(this, store.getImageObject(position).getId());
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
-            int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-            int columns = width / RVAdapter.getCardSize(context);
-            rv.setLayoutManager(
-                    new GridLayoutManager(context
-                            , columns > 0 ? columns : 1));
+            setupRecyclerView();
         } else if (key.equals(getResources().getString(R.string.preference_idle))) {
             if (sharedPreferences.getBoolean(key, false)) {
                 if (PreferenceHelper.isActive(this)) {
@@ -707,64 +657,71 @@ public class MainActivity extends AppCompatActivity implements ImageStore.ImageS
 
     @Override
     public void onWallpaperAdded(ImageObject img) {
-        int pos = store.getPosition(img.getId());
+        //Tried to update adapter on image at a time... was getting IOOBE
+    }
+
+    @Override
+    public void onWallpaperSetNotFound(String id) {
+        adapter.removeItem(store.getPosition(id));
+        Toast.makeText(context,
+                R.string.set_wallpaper_missing_image,
+                Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onWallpaperSetEmpty() {
+        Snackbar.make(constraintLayout, R.string.set_wallpaper_no_images, Snackbar.LENGTH_LONG)
+                .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
+                .setTextColor(getColor(R.color.white))
+                .show();
+    }
+
+    @Override
+    public void onWallpaperSetSuccess() {
+        Toast.makeText(context,
+                getResources().getText(R.string.toast_wallpaper_changing),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onWallpaperLoadingStarted(int size, String message) {
         runOnUiThread(() -> {
-            adapter.notifyItemInserted(store.size() + 1);
-            lastAddedPosition = pos;
+            loadingDialog = ProgressDialogFragment.newInstance(size);
+            loadingDialog.showNow(getSupportFragmentManager(), "add_progress");
+            if (message != null){
+                loadingDialog.setMessage(message);
+            }
         });
     }
 
     @Override
-    public void onWallpaperLoadingStarted(int size) {
-        loadingDialog = ProgressDialogFragment.newInstance(size);
-        loadingDialog.showNow(getSupportFragmentManager(),"add_progress");
-        lastAddedPosition = -1;
-    }
-
-    @Override
     public void onWallpaperLoadingIncrement(int inc) {
-        loadingDialog.incrementProgressBy(inc);
+        runOnUiThread(() -> {
+            if (inc < 0)
+                loadingDialog.setIndeterminate(true);
+            else {
+                loadingDialog.setIndeterminate(false);
+                loadingDialog.incrementProgressBy(inc);
+            }
+        });
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
-        loadingDialog.dismiss();
+        if (loadingDialog != null)
+            runOnUiThread(() -> loadingDialog.dismiss());
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs(context);
         invalidateOptionsMenu();
-        if (status != WallpaperManager.WallpaperAddedListener.SUCCESS) {
+        if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null) ? msg : "Unknown error.")
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
-        if (lastAddedPosition > -1)
-            runOnUiThread(() -> rv.scrollToPosition(lastAddedPosition));
-    }
-
-    @Override
-    public void onActivityResult(ActivityResult result) {
-        HashSet<Uri> sources = new HashSet<>();
-        if (result.getResultCode() == Activity.RESULT_OK) {
-            // There are no request codes
-            Intent data = result.getData();
-            StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
-            if (data != null) {
-                if (data.getData() != null) {
-                    //Single select
-                    sources.add(data.getData());
-
-                } else if (data.getClipData() != null) {
-                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                        Uri uri = data.getClipData().getItemAt(i).getUri();
-                        sources.add(uri);
-                    }
-                }
-                WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
-            }
-        }
+        runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
     @SuppressLint("NotifyDataSetChanged")

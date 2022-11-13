@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.data;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -6,6 +6,8 @@ import android.net.Uri;
 import android.provider.MediaStore;
 
 import androidx.palette.graphics.Palette;
+
+import com.moosedrive.wallpaperer.utils.StorageUtils;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -20,7 +22,12 @@ public class ImageObject {
     private static final ThreadPoolExecutor tpe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
     private final String id;
     private final String name;
-    private final Uri uri;
+
+    public void setUri(Uri uri) {
+        this.uri = uri;
+    }
+
+    private Uri uri;
     private final long size;
     private final String type;
     private final Date addedDate;

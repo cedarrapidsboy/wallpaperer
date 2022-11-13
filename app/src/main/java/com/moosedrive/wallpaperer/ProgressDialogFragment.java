@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -26,9 +27,11 @@ public class ProgressDialogFragment extends DialogFragment {
 
     AlertDialog dialog;
     ProgressBar pb;
+    TextView messageView;
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        // Hack to survive orientation change
         setRetainInstance(true);
         // adding ALERT Dialog builder object and passing activity as parameter
         AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
@@ -43,14 +46,21 @@ public class ProgressDialogFragment extends DialogFragment {
         dialog.setCancelable(false);
         pb = alertView.findViewById(R.id.loading_progress);
         pb.setMin(0);
+        messageView = alertView.findViewById(R.id.loading_dialog_message);
         assert getArguments() != null;
         pb.setMax(getArguments().getInt("max"));
         pb.setIndeterminate(false);
         return dialog;
     }
     public void incrementProgressBy(int num) {
-        if (pb != null) {
-            pb.incrementProgressBy(num);
-        }
+        pb.incrementProgressBy(num);
+    }
+
+    public void setMessage(String msg){
+        messageView.setText(msg);
+    }
+
+    public void setIndeterminate(boolean ind) {
+        pb.setIndeterminate(ind);
     }
 }

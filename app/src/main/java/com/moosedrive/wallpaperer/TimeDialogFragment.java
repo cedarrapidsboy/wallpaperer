@@ -8,7 +8,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceDialogFragmentCompat;
 
-public class DialogTimePrefCompat extends PreferenceDialogFragmentCompat {
+public class TimeDialogFragment extends PreferenceDialogFragmentCompat {
 
     TimePicker timePicker = null;
 
@@ -22,7 +22,7 @@ public class DialogTimePrefCompat extends PreferenceDialogFragmentCompat {
     protected void onBindDialogView(@NonNull View v) {
         super.onBindDialogView(v);
         timePicker.setIs24HourView(true);
-        DialogTimePreference pref = (DialogTimePreference) getPreference();
+        TimeDialogPreference pref = (TimeDialogPreference) getPreference();
         timePicker.setHour(pref.hour);
         timePicker.setMinute(pref.minute);
     }
@@ -30,7 +30,7 @@ public class DialogTimePrefCompat extends PreferenceDialogFragmentCompat {
     @Override
     public void onDialogClosed(boolean positiveResult) {
         if (positiveResult) {
-            DialogTimePreference pref = (DialogTimePreference) getPreference();
+            TimeDialogPreference pref = (TimeDialogPreference) getPreference();
             pref.hour = timePicker.getHour();
             pref.minute = timePicker.getMinute();
             if (pref.hour == 0 && pref.minute < 1) {
@@ -38,7 +38,7 @@ public class DialogTimePrefCompat extends PreferenceDialogFragmentCompat {
                 Toast.makeText(getContext(), getString(R.string.toast_delay_too_short), Toast.LENGTH_LONG).show();
             }
 
-            String value = DialogTimePreference.timeToString(pref.hour, pref.minute);
+            String value = TimeDialogPreference.timeToString(pref.hour, pref.minute);
             if (pref.callChangeListener(value)) pref.persistStringValue(value);
         }
     }

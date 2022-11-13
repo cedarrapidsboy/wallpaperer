@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.wallpaper;
 
 import android.content.Context;
 import android.net.Uri;
@@ -6,6 +6,12 @@ import android.os.StatFs;
 import android.provider.DocumentsContract;
 
 import androidx.annotation.NonNull;
+
+import com.moosedrive.wallpaperer.R;
+import com.moosedrive.wallpaperer.data.ImageObject;
+import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
+import com.moosedrive.wallpaperer.utils.StorageUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -23,7 +29,8 @@ public class WallpaperManager {
      */
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
     private static WallpaperManager singleton;
-    private final Set<WallpaperAddedListener> wallpaperListeners = new HashSet<>();
+    private final Set<IWallpaperAddedListener> wallpaperAddedListeners = new HashSet<>();
+    private final Set<WallpaperSetListener> wallpaperSetListeners = new HashSet<>();
     /**
      * The Loading done signal.
      */
@@ -47,19 +54,42 @@ public class WallpaperManager {
      *
      * @param wal the wal
      */
-    public void addWallpaperAddedListener(WallpaperAddedListener wal) {
-        wallpaperListeners.add(wal);
+    public void addWallpaperAddedListener(IWallpaperAddedListener wal) {
+        wallpaperAddedListeners.add(wal);
     }
-
+    public void addWallpaperSetListener(WallpaperSetListener wal) {
+        wallpaperSetListeners.add(wal);
+    }
     /**
      * Remove wallpaper added listener.
      *
      * @param wal the wal
      */
-    public void removeWallpaperAddedListener(WallpaperAddedListener wal) {
-        wallpaperListeners.remove(wal);
+    public void removeWallpaperAddedListener(IWallpaperAddedListener wal) {
+        wallpaperAddedListeners.remove(wal);
+    }
+    public void removeWallpaperSetListener(WallpaperSetListener wal) {
+        wallpaperSetListeners.remove(wal);
     }
 
+    /**
+     * Sets single wallpaper as soon as possible. Sets next wallpaper if object id == null
+     *
+     * @param imgObjectId the img object id
+     */
+    public void setSingleWallpaper(Context context, String imgObjectId) {
+        ImageStore store = ImageStore.getInstance();
+        if (store.size() == 0) {
+            wallpaperSetListeners.forEach(WallpaperSetListener::onWallpaperSetEmpty);
+        } else {
+            if (imgObjectId != null && !StorageUtils.sourceExists(context, store.getImageObject(imgObjectId).getUri())) {
+                wallpaperSetListeners.forEach(listener -> listener.onWallpaperSetNotFound(imgObjectId));
+            } else {
+                WallpaperWorker.changeWallpaperNow(context, imgObjectId);
+                wallpaperSetListeners.forEach(WallpaperSetListener::onWallpaperSetSuccess);
+            }
+        }
+    }
     /**
      * Add wallpapers from list of URI's.
      * Loading dialog is displayed and progress bar updated as wallpapers are added.
@@ -73,8 +103,8 @@ public class WallpaperManager {
         loadingErrors = new HashSet<>();
         if (sources.size() > 0) {
             loadingDoneSignal = new CountDownLatch(sources.size());
-            for (WallpaperAddedListener wal : wallpaperListeners)
-                wal.onWallpaperLoadingStarted(sources.size());
+            for (IWallpaperAddedListener wal : wallpaperAddedListeners)
+                wal.onWallpaperLoadingStarted(sources.size(), null);
             for (Uri uri : sources) {
                 Thread t = new Thread(() -> {
                     File fImageStorageFolder = StorageUtils.getStorageFolder(context);
@@ -95,7 +125,7 @@ public class WallpaperManager {
                             long creationDate = StorageUtils.getCreationDate(context, uri);
                             if (type.startsWith("image/")) {
                                 try {
-                                    String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
+                                    String uuid = StorageUtils.getRandomAlphaNumeric(4);
                                     String filename = name + "_" + uuid;
                                     long size = Long.parseLong(StorageUtils.getFileAttrib(uri, DocumentsContract.Document.COLUMN_SIZE, context));
                                     Uri uCopiedFile = StorageUtils.saveBitmap(context, uri, size, fImageStorageFolder.getPath(), filename, recompress);
@@ -107,9 +137,10 @@ public class WallpaperManager {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, dNow, (creationDate > 0) ? new Date(creationDate) : dNow);
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
-                                        store.addImageObject(img);
-                                        for (WallpaperAddedListener wal : wallpaperListeners)
-                                            wal.onWallpaperAdded(img);
+                                        if (store.addImageObject(img)) {
+                                            for (IWallpaperAddedListener wal : wallpaperAddedListeners)
+                                                wal.onWallpaperAdded(img);
+                                        }
                                     } catch (NoSuchAlgorithmException | IOException e) {
                                         e.printStackTrace();
                                     }
@@ -123,7 +154,7 @@ public class WallpaperManager {
                             }
                         }
                     }
-                    for (WallpaperAddedListener wal : wallpaperListeners)
+                    for (IWallpaperAddedListener wal : wallpaperAddedListeners)
                         wal.onWallpaperLoadingIncrement(1);
                     loadingDoneSignal.countDown();
                 });
@@ -141,17 +172,24 @@ public class WallpaperManager {
                         sb.append(str);
                         sb.append(System.getProperty("line.separator"));
                     }
-                    for (WallpaperAddedListener wal : wallpaperListeners)
-                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0) ? WallpaperAddedListener.SUCCESS : WallpaperManager.WallpaperAddedListener.ERROR, sb.toString());
+                    for (IWallpaperAddedListener wal : wallpaperAddedListeners)
+                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0) ? IWallpaperAddedListener.SUCCESS : IWallpaperAddedListener.ERROR, sb.toString());
                 }
             });
         }
     }
 
+    public interface  WallpaperSetListener {
+
+        void onWallpaperSetNotFound(String id);
+        void onWallpaperSetEmpty();
+        void onWallpaperSetSuccess();
+    }
+
     /**
      * The interface Wallpaper added listener.
      */
-    public interface WallpaperAddedListener {
+    public interface IWallpaperAddedListener {
         /**
          * The constant SUCCESS.
          */
@@ -173,7 +211,7 @@ public class WallpaperManager {
          *
          * @param size the size
          */
-        void onWallpaperLoadingStarted(int size);
+        void onWallpaperLoadingStarted(int size, String message);
 
         /**
          * On wallpaper loading increment.
@@ -189,6 +227,7 @@ public class WallpaperManager {
          * @param message the message
          */
         void onWallpaperLoadingFinished(int status, String message);
+
     }
 
 

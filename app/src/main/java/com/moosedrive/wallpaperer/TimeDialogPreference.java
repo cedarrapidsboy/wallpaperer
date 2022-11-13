@@ -10,11 +10,11 @@ import androidx.preference.DialogPreference;
 
 import java.util.Locale;
 
-public class DialogTimePreference extends DialogPreference {
+public class TimeDialogPreference extends DialogPreference {
     public int hour = 0;
     public int minute = 0;
 
-    public DialogTimePreference(@NonNull Context context, @Nullable AttributeSet attrs) {
+    public TimeDialogPreference(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
     }
 

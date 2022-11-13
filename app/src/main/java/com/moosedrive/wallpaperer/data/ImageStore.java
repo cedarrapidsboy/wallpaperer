@@ -1,18 +1,19 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.os.StatFs;
 import android.preference.PreferenceManager;
-import android.provider.DocumentsContract;
+
+import androidx.annotation.NonNull;
+
+import com.moosedrive.wallpaperer.R;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -22,13 +23,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * The type Image store.
@@ -57,16 +58,22 @@ public class ImageStore {
     private static ImageStore store = null;
 
     private int sortCriteria = SORT_BY_CUSTOM;
-    private LinkedHashMap<String, ImageObject> referenceImages;
-
-    private final ArrayList<Collection<ImageObject>> sortedImages = new ArrayList<>();private String lastWallpaperId = "";
+    private final HashMap<String, ImageObject> referenceImages;
+    private final List<ImageObject> orderedImages;
+    private final List<TreeSet<ImageObject>> sortedImages;
+    private String lastWallpaperId = "";
     private int lastWallpaperPos = -1;
 
     private ImageStore() {
-        this.referenceImages = new LinkedHashMap<>();
+        // The entire image repository
+        referenceImages = new LinkedHashMap<>();
+        // The user-ordered list of images
+        orderedImages = new LinkedList<>();
+        // The pre-sorted sets of images (a list of sets)
+        sortedImages = new ArrayList<>();
         //SORT_BY_NAME==0
         sortedImages.add(new TreeSet<>(Comparator.comparing(ImageObject::getName)
-                .thenComparing(ImageObject::getAddedDate)
+                .thenComparing(ImageObject::getCreationDate)
                 .thenComparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getId)));
         //SORT_BY_DATE==1
@@ -77,7 +84,7 @@ public class ImageStore {
         //SORT_BY_SIZE==2
         sortedImages.add(new TreeSet<>(Comparator.comparingLong(ImageObject::getSize)
                 .thenComparing(ImageObject::getName)
-                .thenComparing(ImageObject::getAddedDate)
+                .thenComparing(ImageObject::getCreationDate)
                 .thenComparing(ImageObject::getId)));
     }
 
@@ -135,21 +142,12 @@ public class ImageStore {
     /**
      * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
      */
-    public void shuffleImages(){
-        List<String> list = new ArrayList<>(referenceImages.keySet());
-        // Shuffle all the images
-        Collections.shuffle(list);
-        // Rebuild the hashmap with the shuffled list
-        LinkedHashMap<String, ImageObject> shuffleMap = new LinkedHashMap<>();
-        list.forEach(k->shuffleMap.put(k, referenceImages.get(k)));
-        referenceImages = shuffleMap;
-        // Move the active wallpaper to the top
+    public void shuffleImages() {
+        Collections.shuffle(orderedImages);
         if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
-            ImageObject moveToFront = referenceImages.get(lastWallpaperId);
-            if (moveToFront != null){
-                referenceImages.remove(moveToFront.getId());
-                addImageObject(moveToFront, 0);
-            }
+            ImageObject swapImage = referenceImages.get(lastWallpaperId);
+            orderedImages.remove(swapImage);
+            orderedImages.add(0, swapImage);
             lastWallpaperPos = 0;
         }
     }
@@ -162,8 +160,18 @@ public class ImageStore {
     public synchronized void saveToPrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
+        JSONArray imageArray = imageObjectsToJson(orderedImages);
+        edit.putString("sources", imageArray.toString());
+        edit.putInt("sort", getSortCriteria());
+        edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
+        edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
+        edit.apply();
+    }
+
+    @NonNull
+    public static JSONArray imageObjectsToJson(Collection<ImageObject> objects) {
         JSONArray imageArray = new JSONArray();
-        for (ImageObject io : referenceImages.values().toArray(new ImageObject[0])) {
+        objects.forEach(io -> {
             try {
                 JSONObject imageJson = new JSONObject();
                 imageJson.put("uri", io.getUri().toString());
@@ -178,12 +186,8 @@ public class ImageStore {
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-        }
-        edit.putString("sources", imageArray.toString());
-        edit.putInt("sort",getSortCriteria());
-        edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
-        edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
-        edit.apply();
+        });
+        return imageArray;
     }
 
     /**
@@ -193,66 +197,56 @@ public class ImageStore {
      */
     public synchronized void updateFromPrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-            for (int i = 0; i < imageArray.length(); i++) {
-                Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
-                try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")){
-                    Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
-                            ?new Date(imageArray.getJSONObject(i).getLong("added_date"))
-                            :new Date();
-                    Date creationDate = (imageArray.getJSONObject(i).has("date"))
-                            ?new Date(imageArray.getJSONObject(i).getLong("date"))
-                            :new Date();
-                    ImageObject io = addImageObject(uri,
-                            imageArray.getJSONObject(i).getString("id"),
-                            imageArray.getJSONObject(i).getString("name"),
-                            imageArray.getJSONObject(i).getLong("size"),
-                            imageArray.getJSONObject(i).getString("type"),
-                            addedDate,
-                            creationDate);
-                    io.setColor(imageArray.getJSONObject(i).getInt("color"));
-                } catch (FileNotFoundException e) {
-                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
-                    e.printStackTrace();
-                } catch (NoSuchAlgorithmException | IOException | JSONException e) {
-                    e.printStackTrace();
-                }
-            }
+            loadedImgs = parseJsonArray(context, imageArray, false);
         } catch (JSONException e) {
             e.printStackTrace();
         }
+        replace(loadedImgs);
         lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
         lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
-        setSortCriteria(prefs.getInt("sort",SORT_DEFAULT));
+        setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
 
-    /**
-     * Add image object.
-     *
-     * @param uri          the uri
-     * @param id           the id
-     * @param filename     the filename
-     * @param size         the size
-     * @param type         the type
-     * @param addedDate    the added date
-     * @param creationDate the date
-     * @return the image object
-     * @throws NoSuchAlgorithmException the no such algorithm exception
-     * @throws IOException              the io exception
-     */
-    @SuppressWarnings("UnusedReturnValue")
-    public synchronized ImageObject addImageObject(
-            Uri uri,
-            String id,
-            String filename,
-            long size,
-            String type,
-            Date addedDate,
-            Date creationDate) throws NoSuchAlgorithmException, IOException {
-        ImageObject img = new ImageObject(uri, id, filename, size, type, addedDate, creationDate);
-        addImageObject(img);
-        return img;
+    public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray, boolean ignoreUri) throws JSONException {
+        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
+        for (int i = 0; i < imageArray.length(); i++) {
+            Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
+            if (!ignoreUri) {
+                try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")) {
+                    int x = 0; //ignore
+                } catch (FileNotFoundException e) {
+                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
+                    e.printStackTrace();
+                    return loadedImgs;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return loadedImgs;
+                }
+            }
+            try {
+                Date addedDate = (imageArray.getJSONObject(i).has("added_date"))
+                        ? new Date(imageArray.getJSONObject(i).getLong("added_date"))
+                        : new Date();
+                Date creationDate = (imageArray.getJSONObject(i).has("date"))
+                        ? new Date(imageArray.getJSONObject(i).getLong("date"))
+                        : new Date();
+                ImageObject io = new ImageObject(uri,
+                        imageArray.getJSONObject(i).getString("id"),
+                        imageArray.getJSONObject(i).getString("name"),
+                        imageArray.getJSONObject(i).getLong("size"),
+                        imageArray.getJSONObject(i).getString("type"),
+                        addedDate,
+                        creationDate);
+                io.setColor(imageArray.getJSONObject(i).getInt("color"));
+                loadedImgs.add(io);
+            } catch (NoSuchAlgorithmException | JSONException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return loadedImgs;
     }
 
     /**
@@ -260,8 +254,8 @@ public class ImageStore {
      *
      * @param img the img
      */
-    public synchronized void addImageObject(ImageObject img) {
-        addImageObject(img, -1);
+    public synchronized boolean addImageObject(ImageObject img) {
+        return addImageObject(img, -1);
     }
 
     /**
@@ -270,34 +264,18 @@ public class ImageStore {
      * @param imgTry      the img
      * @param refPosition the position Where to place the new object, or -1 to append
      */
-    public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
-        ImageObject img = imgTry;
-        if (referenceImages.size() == 0 || refPosition < 0 || refPosition > (referenceImages.size() - 1)) {
-            // add to end of map
-            img = referenceImages.put(img.getId(), img);
-        } else {
-            // rebuild the map and insert the image along the way
-            int curPos = 0;
-            LinkedHashMap<String, ImageObject> oldImages = referenceImages;
-            LinkedHashMap<String, ImageObject> newImages = new LinkedHashMap<>();
-            for (String key : oldImages.keySet()) {
-                if (curPos == refPosition)
-                    img = newImages.put(imgTry.getId(), imgTry);
-                if (!key.equals(imgTry.getId()))
-                    newImages.put(key, oldImages.get(key));
-                curPos++;
-            }
-            referenceImages = newImages;
+    public synchronized boolean addImageObject(ImageObject imgTry, int refPosition) {
+        ImageObject img = referenceImages.put(imgTry.getId(), imgTry);
+        int index = refPosition;
+        boolean notExists = (img == null || img != imgTry);
+        if (notExists) {
+            if (index < 0 || index > orderedImages.size())
+                index = orderedImages.size();
+            orderedImages.add(index, imgTry);
+            sortedImages.forEach(imgarray -> imgarray.add(imgTry));
         }
-        //Add the image to each sorted set
-        if (img == null)
-            img = imgTry;
-        for (Collection<ImageObject> imgArray : sortedImages){
-            if (imgArray instanceof Set)
-                imgArray.add(img);
-        }
-        //Reset the last wallpaper position since a new one was added and may have bumped it
         setLastWallpaperId(getLastWallpaperId(), false);
+        return notExists;
     }
 
     /**
@@ -307,15 +285,16 @@ public class ImageStore {
      */
     public synchronized void delImageObject(String id) {
         ImageObject deadImgWalking = referenceImages.get(id);
-        referenceImages.remove(id);
-        for (Collection<ImageObject> imgArray : sortedImages){
-            imgArray.remove(deadImgWalking);
-        }
-        if (deadImgWalking != null && getLastWallpaperId().equals(deadImgWalking.getId())) {
-            lastWallpaperId = "";
-        } else {
-            //Reset the last wallpaper position to the repositioned place
-            setLastWallpaperId(getLastWallpaperId(), false);
+        if (deadImgWalking != null) {
+            referenceImages.remove(id);
+            orderedImages.remove(deadImgWalking);
+            sortedImages.forEach(imgArray -> imgArray.remove(deadImgWalking));
+            if (getLastWallpaperId().equals(deadImgWalking.getId())) {
+                lastWallpaperId = "";
+            } else {
+                //Reset the last wallpaper position to the repositioned place
+                setLastWallpaperId(getLastWallpaperId(), false);
+            }
         }
     }
 
@@ -323,7 +302,7 @@ public class ImageStore {
      * Gets image object.
      *
      * @param id the id
-     * @return the image object
+     * @return the image object or null if not found
      */
     public synchronized ImageObject getImageObject(String id) {
         return referenceImages.get(id);
@@ -350,7 +329,7 @@ public class ImageStore {
      * @return the image object
      */
     public synchronized ImageObject getImageObject(int i) {
-        if (i < 0 || i >= getImageObjectArray().length)
+        if (i < 0 || i >= referenceImages.size())
             return null;
         return getImageObjectArray()[i];
     }
@@ -362,19 +341,28 @@ public class ImageStore {
      */
     public synchronized ImageObject[] getImageObjectArray() {
         if (sortCriteria == SORT_BY_CUSTOM)
-            return referenceImages.values().toArray(new ImageObject[0]);
+            return orderedImages.toArray(new ImageObject[0]);
         else
             return sortedImages.get(sortCriteria).toArray(new ImageObject[0]);
     }
 
     /**
-     * Replace.
+     * Get all ImageObject items in the library
+     *
+     * @return A new collection of the objects
+     */
+    public synchronized Collection<ImageObject> getReferenceObjects() {
+        return new ArrayList<>(referenceImages.values());
+    }
+
+    /**
+     * Replace all objects in the ImageStore with the provided colection
      *
      * @param col the col
      */
-    public void replace(Collection<ImageObject> col){
+    public void replace(Collection<ImageObject> col) {
         store.clear(true);
-        col.forEach(obj -> store.addImageObject(obj));
+        col.forEach(this::addImageObject);
     }
 
     /**
@@ -394,7 +382,7 @@ public class ImageStore {
      * @return the reference position
      */
     public synchronized int getReferencePosition(String id) {
-        return Arrays.asList(referenceImages.keySet().toArray(new String[0])).indexOf(id);
+        return orderedImages.indexOf(referenceImages.get(id));
     }
 
     /**
@@ -404,11 +392,10 @@ public class ImageStore {
      */
     public synchronized void clear(boolean listsOnly) {
         referenceImages.clear();
+        orderedImages.clear();
         if (!listsOnly)
-            setLastWallpaperId("", false);
-        for (Collection<ImageObject> imgArray : sortedImages){
-            imgArray.clear();
-        }
+            setLastWallpaperId("", true);
+        sortedImages.forEach(TreeSet::clear);
     }
 
     /**
@@ -456,9 +443,12 @@ public class ImageStore {
      * @param newPos the new pos
      * @return the boolean
      */
-    public boolean moveImageObject(ImageObject object, int newPos){
-        if (referenceImages.containsKey(object.getId())){
-            referenceImages.remove(object.getId());
+    public boolean moveImageObject(ImageObject object, int newPos) {
+        if (referenceImages.containsKey(object.getId())) {
+            String previousActiveId = lastWallpaperId;
+            delImageObject(object.getId());
+            if (previousActiveId.equals(object.getId()))
+                setLastWallpaperId(previousActiveId, true);
             addImageObject(object, newPos);
             return true;
         }

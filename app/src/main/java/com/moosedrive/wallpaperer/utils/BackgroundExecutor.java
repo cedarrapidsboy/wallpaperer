@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.utils;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -8,10 +8,10 @@ public class BackgroundExecutor {
 
     public static ThreadPoolExecutor getExecutor(){
         if (executor == null){
-            int procs = (Runtime.getRuntime().availableProcessors() < 2)
+            int poolSize = (Runtime.getRuntime().availableProcessors() < 2)
                     ? 1
                     : Runtime.getRuntime().availableProcessors() - 1;
-            executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(procs);
+            executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(poolSize);
         }
         return executor;
     }

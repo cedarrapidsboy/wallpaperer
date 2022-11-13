@@ -12,19 +12,19 @@
         android:layout_width="160dp"
         android:layout_height="66dp"
         android:layout_marginBottom="24dp"
-        app:layout_constraintBottom_toTopOf="@+id/message"
+        app:layout_constraintBottom_toTopOf="@+id/loading_dialog_message"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
-        android:id="@+id/message"
+        android:id="@+id/loading_dialog_message"
         android:layout_width="0dp"
         android:layout_height="56dp"
         android:gravity="center|top"
         android:singleLine="true"
         android:text="@string/dialog_processing_images"
-        android:textSize="24sp"
+        android:textSize="14sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
