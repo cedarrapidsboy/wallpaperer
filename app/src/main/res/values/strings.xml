@@ -105,5 +105,12 @@
     <string name="menu_export">Export Images</string>
     <string name="menu_import">Import Images</string>
     <string name="intent_chooser_select_imports">Select export file(s)</string>
+    <string name="preference_category_backup">Backup</string>
+    <string name="preference_import_title">Import</string>
+    <string name="preference_import_summary">Load images from one or more previously exported ZIP file(s). This will not delete existing images.</string>
+    <string name="preference_import_key">preference_import</string>
+    <string name="preference_export_title">Export</string>
+    <string name="preference_export_summary">Copy all of the images to one or more ZIP file(s). The files can be found in this device\'s Downloads directory.</string>
+    <string name="preference_export_key">preference_export</string>
 
 </resources>

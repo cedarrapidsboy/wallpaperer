@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.wallpaper;
 
 import android.content.Context;
 import android.net.Uri;
@@ -7,6 +7,7 @@ import android.provider.DocumentsContract;
 
 import androidx.annotation.NonNull;
 
+import com.moosedrive.wallpaperer.R;
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
@@ -28,7 +29,7 @@ public class WallpaperManager {
      */
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
     private static WallpaperManager singleton;
-    private final Set<WallpaperAddedListener> wallpaperAddedListeners = new HashSet<>();
+    private final Set<IWallpaperAddedListener> wallpaperAddedListeners = new HashSet<>();
     private final Set<WallpaperSetListener> wallpaperSetListeners = new HashSet<>();
     /**
      * The Loading done signal.
@@ -53,7 +54,7 @@ public class WallpaperManager {
      *
      * @param wal the wal
      */
-    public void addWallpaperAddedListener(WallpaperAddedListener wal) {
+    public void addWallpaperAddedListener(IWallpaperAddedListener wal) {
         wallpaperAddedListeners.add(wal);
     }
     public void addWallpaperSetListener(WallpaperSetListener wal) {
@@ -64,7 +65,7 @@ public class WallpaperManager {
      *
      * @param wal the wal
      */
-    public void removeWallpaperAddedListener(WallpaperAddedListener wal) {
+    public void removeWallpaperAddedListener(IWallpaperAddedListener wal) {
         wallpaperAddedListeners.remove(wal);
     }
     public void removeWallpaperSetListener(WallpaperSetListener wal) {
@@ -102,7 +103,7 @@ public class WallpaperManager {
         loadingErrors = new HashSet<>();
         if (sources.size() > 0) {
             loadingDoneSignal = new CountDownLatch(sources.size());
-            for (WallpaperAddedListener wal : wallpaperAddedListeners)
+            for (IWallpaperAddedListener wal : wallpaperAddedListeners)
                 wal.onWallpaperLoadingStarted(sources.size(), null);
             for (Uri uri : sources) {
                 Thread t = new Thread(() -> {
@@ -137,7 +138,7 @@ public class WallpaperManager {
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
                                         if (store.addImageObject(img)) {
-                                            for (WallpaperAddedListener wal : wallpaperAddedListeners)
+                                            for (IWallpaperAddedListener wal : wallpaperAddedListeners)
                                                 wal.onWallpaperAdded(img);
                                         }
                                     } catch (NoSuchAlgorithmException | IOException e) {
@@ -153,7 +154,7 @@ public class WallpaperManager {
                             }
                         }
                     }
-                    for (WallpaperAddedListener wal : wallpaperAddedListeners)
+                    for (IWallpaperAddedListener wal : wallpaperAddedListeners)
                         wal.onWallpaperLoadingIncrement(1);
                     loadingDoneSignal.countDown();
                 });
@@ -171,8 +172,8 @@ public class WallpaperManager {
                         sb.append(str);
                         sb.append(System.getProperty("line.separator"));
                     }
-                    for (WallpaperAddedListener wal : wallpaperAddedListeners)
-                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0) ? WallpaperAddedListener.SUCCESS : WallpaperManager.WallpaperAddedListener.ERROR, sb.toString());
+                    for (IWallpaperAddedListener wal : wallpaperAddedListeners)
+                        wal.onWallpaperLoadingFinished(((loadingErrors.size()) == 0) ? IWallpaperAddedListener.SUCCESS : IWallpaperAddedListener.ERROR, sb.toString());
                 }
             });
         }
@@ -188,7 +189,7 @@ public class WallpaperManager {
     /**
      * The interface Wallpaper added listener.
      */
-    public interface WallpaperAddedListener {
+    public interface IWallpaperAddedListener {
         /**
          * The constant SUCCESS.
          */

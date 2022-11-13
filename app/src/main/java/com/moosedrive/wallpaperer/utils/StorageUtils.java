@@ -16,7 +16,7 @@ import androidx.exifinterface.media.ExifInterface;
 
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
-import com.moosedrive.wallpaperer.WallpaperManager;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -251,6 +251,7 @@ public class StorageUtils {
      * @param uri     the uri
      * @return the boolean
      */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean sourceExists(Context context, Uri uri) {
         boolean exists = false;
         if (uri != null) {
@@ -395,7 +396,7 @@ public class StorageUtils {
      * wallpaperer-20221111101000-3.zip
      *
      * @param objs images to add to this backup volume
-     * @throws IOException
+     * @throws IOException Unknown IOException
      */
     public static void makeBackup(Collection<ImageObject> objs, IExportListener listener) throws IOException {
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
@@ -412,60 +413,66 @@ public class StorageUtils {
      * @param objs   images to add to this backup volume
      * @param id     unique identifier for this backup volume
      * @param volNum the number of the volume being created
-     * @throws IOException
+     * @throws IOException Unknown IOException
      */
     private static void makeBackup(Collection<ImageObject> objs, String id, int volNum, IExportListener listener) throws IOException {
         listener.onExportStarted(objs.size(), "Exporting images to Downloads directory..." + ((volNum>1)?"\nVolume " + volNum:""));
         File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         Stack<ImageObject> objStack = new Stack<>();
         objStack.addAll(objs);
-        if (volNum < 1)
-            volNum = 1;
-        String outputPath = zipDirectory.getPath()
-                + File.separator
-                + id
-                + ((volNum > 1) ? "-" + volNum : "")
-                + ".zip";
-        try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
-                new FileOutputStream(outputPath)))) {
+        if (objs.size() > 0) {
+            if (volNum < 1)
+                volNum = 1;
+            String outputPath = zipDirectory.getPath()
+                    + File.separator
+                    + id
+                    + ((volNum > 1) ? "-" + volNum : "")
+                    + ".zip";
+            try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
+                    new FileOutputStream(outputPath)))) {
 
-            byte[] data = new byte[BUFFER_SIZE];
-            long size = 0;
-            Collection<ImageObject> processedObjs = new ArrayList<>();
-            // Limit size of each ZIP volume to 1GiB
-            while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
-                {
-                    listener.onExportIncrement(1);
-                    ImageObject obj = objStack.pop();
-                    processedObjs.add(obj);
-                    try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
-                         BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)) {
-                        String filename = obj.getId();
-                        ZipEntry entry = new ZipEntry(filename);
-                        zos.putNextEntry(entry);
-                        while (bis.available() > 0) {
-                            int count = bis.read(data, 0, BUFFER_SIZE);
-                            size += count;
-                            zos.write(data, 0, count);
+                byte[] data = new byte[BUFFER_SIZE];
+                long size = 0;
+                int exportCount = 0;
+                Collection<ImageObject> processedObjs = new ArrayList<>();
+                // Limit size of each ZIP volume to 1GiB
+                while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
+                    {
+                        listener.onExportIncrement(1);
+                        ImageObject obj = objStack.pop();
+                        processedObjs.add(obj);
+                        try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
+                             BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE)) {
+                            String filename = obj.getId();
+                            ZipEntry entry = new ZipEntry(filename);
+                            zos.putNextEntry(entry);
+                            while (bis.available() > 0) {
+                                int count = bis.read(data, 0, BUFFER_SIZE);
+                                size += count;
+                                zos.write(data, 0, count);
+                            }
+                            exportCount++;
+                        } catch (IOException fnfe) {
+                            listener.onExportFinished(IExportListener.ERROR, "Error writing export archive.");
+                            fnfe.printStackTrace();
                         }
-                    } catch (IOException fnfe) {
-                        listener.onExportFinished(IExportListener.ERROR, "Error writing export archive.");
-                        fnfe.printStackTrace();
                     }
                 }
-            }
 
-            JSONArray jsonArray = ImageStore.imageObjectsToJson(processedObjs);
-            zos.putNextEntry(new ZipEntry("manifest.json"));
-            zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
-            listener.onExportFinished(IExportListener.SUCCESS, null);
-            //If we stil have work to do then start the next volume
-            if (!objStack.isEmpty())
-                makeBackup(objStack, id, volNum + 1, listener);
+                JSONArray jsonArray = ImageStore.imageObjectsToJson(processedObjs);
+                zos.putNextEntry(new ZipEntry("manifest.json"));
+                zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
+                listener.onExportFinished(IExportListener.SUCCESS, "Exported " + exportCount + " images.");
+                //If we stil have work to do then start the next volume
+                if (!objStack.isEmpty())
+                    makeBackup(objStack, id, volNum + 1, listener);
+            }
+        } else {
+            listener.onExportFinished(IExportListener.SUCCESS, "No images to export.");
         }
     }
 
-    public static void importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, WallpaperManager.WallpaperAddedListener progressListener) throws IOException {
+    public static void importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, WallpaperManager.IWallpaperAddedListener progressListener) throws IOException {
         LinkedList<ImageObject> objs = new LinkedList<>();
         //get manifest
         progressListener.onWallpaperLoadingStarted(Integer.MAX_VALUE, "Importing images" + ((count > 1)?" (archive "+index+" of "+count+")":"")+"...");
@@ -478,7 +485,7 @@ public class StorageUtils {
             while (zipEntry != null) {
                 if (zipEntry.getName().equals("manifest.json")) {
                     StringBuilder textBuilder = new StringBuilder();
-                    int c = 0;
+                    int c;
                         while ((c = reader.read()) != -1) {
                             textBuilder.append((char) c);
                         }
@@ -491,9 +498,10 @@ public class StorageUtils {
                 }
             }
         } catch (JSONException jsonE) {
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, "Invalid manifest in the archive (JSON error).");
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.ERROR, "Invalid manifest in the archive (JSON error).");
             objs.clear();
         }
+        int newImagesCount = 0;
         if (objs.size() > 0) {
             int increment = Math.round((1F / size) * (Integer.MAX_VALUE));
             progressListener.onWallpaperLoadingIncrement(increment);
@@ -511,14 +519,16 @@ public class StorageUtils {
                         String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
                         writeFile(destination, bis);
                         img.setUri(Uri.fromFile(new File(destination)));
+                        img.generateThumbnail(context);
                         store.addImageObject(img);
+                        newImagesCount++;
                     }
                     zipEntry = zipIn.getNextEntry();
                 }
             }
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.SUCCESS, null);
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.SUCCESS, newImagesCount + " new image(s) imported.");
         } else {
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, "Nothing to do. The images defined in the manifest are not found in the archive.");
+            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.ERROR, "Nothing to do. The images defined in the manifest are not found in the archive.");
         }
     }
 

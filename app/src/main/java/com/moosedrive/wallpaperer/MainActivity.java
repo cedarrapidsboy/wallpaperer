@@ -18,6 +18,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.widget.Adapter;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
@@ -52,6 +53,8 @@ import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
 import com.moosedrive.wallpaperer.utils.IExportListener;
 import com.moosedrive.wallpaperer.utils.PreferenceHelper;
 import com.moosedrive.wallpaperer.utils.StorageUtils;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperWorker;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
 import java.io.IOException;
@@ -71,8 +74,7 @@ public class MainActivity extends AppCompatActivity
         ImageStore.ImageStoreSortListener,
         RVAdapter.ItemClickListener,
         SharedPreferences.OnSharedPreferenceChangeListener,
-        WallpaperManager.WallpaperAddedListener,
-        IExportListener
+        WallpaperManager.IWallpaperAddedListener
 {
 
     final boolean isloading = false;
@@ -89,7 +91,6 @@ public class MainActivity extends AppCompatActivity
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
-    private ActivityResultLauncher<Intent> importChooserResultLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,8 +118,6 @@ public class MainActivity extends AppCompatActivity
 
         //Image Chooser
         registerImageChooser();
-        //Import chooser
-        registerImportChooser();
 
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -176,45 +175,6 @@ public class MainActivity extends AppCompatActivity
                 });
     }
 
-    /**
-     * For when the import function is used and we need a ZIP chooser.
-     */
-    private void registerImportChooser() {
-        importChooserResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    HashSet<Uri> sources = new HashSet<>();
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        // There are no request codes
-                        Intent data = result.getData();
-                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
-                        if (data != null) {
-                            if (data.getData() != null) {
-                                //Single select
-                                sources.add(data.getData());
-                            } else if (data.getClipData() != null) {
-                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                    Uri uri = data.getClipData().getItemAt(i).getUri();
-                                    sources.add(uri);
-                                }
-                            }
-                            BackgroundExecutor.getExecutor().execute(() -> {
-                                AtomicInteger i = new AtomicInteger(1);
-                                int count = sources.size();
-                                sources.forEach(zipUri -> {
-                                    try {
-                                        StorageUtils.importBackup(this, zipUri, store, i.get(), sources.size(), this);
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                        onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, e.getMessage());
-                                    }
-                                    i.getAndIncrement();
-                                });
-                            });
-                        }
-                    }
-                });
-    }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
@@ -477,19 +437,6 @@ public class MainActivity extends AppCompatActivity
             case (R.id.menu_goto):
                 runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
                 return true;
-            case (R.id.menu_export):
-                BackgroundExecutor.getExecutor().execute(() -> {
-                    try {
-                        StorageUtils.makeBackup(store.getReferenceObjects(), this);
-                    } catch (IOException e) {
-                        onExportFinished(IExportListener.ERROR, "Error exporting images: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                });
-                return true;
-            case (R.id.menu_import):
-                openImportChooser();
-                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -555,21 +502,6 @@ public class MainActivity extends AppCompatActivity
             PreferenceHelper.setActive(context, false);
             timerArc.stop();
         }
-    }
-
-    /**
-     * Open image chooser.
-     */
-    public void openImportChooser() {
-
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("application/zip");
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        //intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        importChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_imports)));
     }
 
     /**
@@ -643,7 +575,11 @@ public class MainActivity extends AppCompatActivity
                     int fromPosition = viewHolder.getBindingAdapterPosition();
                     int toPosition = target.getBindingAdapterPosition();
                     if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
-                        runOnUiThread(() -> recyclerView.getAdapter().notifyItemMoved(fromPosition, toPosition));
+                        runOnUiThread(() -> {
+                            RVAdapter rvAdapter = (RVAdapter) recyclerView.getAdapter();
+                            if (rvAdapter != null)
+                                rvAdapter.notifyItemMoved(fromPosition, toPosition);
+                        });
                         return true;
                     }
                 }
@@ -778,7 +714,7 @@ public class MainActivity extends AppCompatActivity
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs(context);
         invalidateOptionsMenu();
-        if (status != WallpaperManager.WallpaperAddedListener.SUCCESS) {
+        if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null) ? msg : "Unknown error.")
@@ -793,47 +729,5 @@ public class MainActivity extends AppCompatActivity
     public void onImageStoreSortChanged() {
         if (adapter != null)
             runOnUiThread(() -> adapter.notifyDataSetChanged());
-    }
-
-    @Override
-    public void onExportStarted(int size, String message) {
-        runOnUiThread(() -> {
-            loadingDialog = ProgressDialogFragment.newInstance(size);
-            loadingDialog.showNow(getSupportFragmentManager(), "export_progress");
-            if (message != null){
-                loadingDialog.setMessage(message);
-            }
-        });
-    }
-
-    @Override
-    public void onExportIncrement(int inc) {
-        runOnUiThread(() -> {
-            if (inc < 0)
-                loadingDialog.setIndeterminate(true);
-            else {
-                loadingDialog.setIndeterminate(false);
-                loadingDialog.incrementProgressBy(inc);
-            }
-        });
-    }
-
-    @Override
-    public void onExportFinished(int status, String message) {
-        if (loadingDialog != null)
-            runOnUiThread(() -> loadingDialog.dismiss());
-        invalidateOptionsMenu();
-        if (status != WallpaperManager.WallpaperAddedListener.SUCCESS) {
-            new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
-                    .setTitle("Error(s) exporting images")
-                    .setMessage((message != null) ? message : "Unknown error.")
-                    .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
-                    .show());
-        } else {
-            Snackbar.make(constraintLayout, "Export complete.", Snackbar.LENGTH_LONG)
-                    .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                    .setTextColor(getColor(R.color.white))
-                    .show();
-        }
     }
 }

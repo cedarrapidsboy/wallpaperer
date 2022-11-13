@@ -1,4 +1,4 @@
-package com.moosedrive.wallpaperer;
+package com.moosedrive.wallpaperer.wallpaper;
 
 import android.app.WallpaperManager;
 import android.content.Context;
@@ -22,6 +22,7 @@ import androidx.work.WorkRequest;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.moosedrive.wallpaperer.R;
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.utils.PreferenceHelper;
