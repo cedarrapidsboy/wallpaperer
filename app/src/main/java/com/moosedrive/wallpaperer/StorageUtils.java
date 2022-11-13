@@ -457,31 +457,35 @@ public class StorageUtils {
         }
     }
 
-    public static LinkedList<ImageObject> importBackup(Context context, Uri backupZipUri) throws IOException {
+    public static LinkedList<ImageObject> importBackup(Context context, Uri backupZipUri, WallpaperManager.WallpaperAddedListener progressListener) throws IOException {
         LinkedList<ImageObject> objs = new LinkedList<>();
         //get manifest
-        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri))) {
+        progressListener.onWallpaperLoadingStarted(Integer.MAX_VALUE);
+        int size = 0;
+        try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
+             Reader reader = new BufferedReader(new InputStreamReader
+                     (zipIn, Charset.forName(StandardCharsets.UTF_8.name())))) {
             ZipEntry zipEntry = zipIn.getNextEntry();
             while (zipEntry != null) {
                 if (zipEntry.getName().equals("manifest.json")) {
                     int count = 0;
                     StringBuilder textBuilder = new StringBuilder();
-                    try (Reader reader = new BufferedReader(new InputStreamReader
-                            (zipIn, Charset.forName(StandardCharsets.UTF_8.name())))) {
-                        int c = 0;
+                    int c = 0;
                         while ((c = reader.read()) != -1) {
                             textBuilder.append((char) c);
                         }
-                    }
+
                     objs = ImageStore.parseJsonArray(context, new JSONArray(textBuilder.toString()), true);
-                    zipEntry = null;
+                    zipEntry = zipIn.getNextEntry();
                 } else {
                     zipEntry = zipIn.getNextEntry();
+                    size++;
                 }
             }
         } catch (JSONException jsonE) {
             return null;
         }
+        progressListener.onWallpaperLoadingIncrement(1);
         //read all files from ZIP and slot into the
         try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
         BufferedInputStream bis = new BufferedInputStream(zipIn)) {
@@ -491,6 +495,7 @@ public class StorageUtils {
                 //check if the filename exists in the manifest
                 ImageObject img = objs.stream().filter(object -> object.getId().equals(thisEntry.getName())).findFirst().orElse(null);
                 if (img != null) {
+                    progressListener.onWallpaperLoadingIncrement(Math.round((1F / size) * (Integer.MAX_VALUE - 1)));
                     File fImageStorageFolder = StorageUtils.getStorageFolder(context);
                     String destination = fImageStorageFolder.getPath() + File.separator + img.getName();
                     writeFile(destination, bis);
@@ -499,6 +504,7 @@ public class StorageUtils {
                 zipEntry = zipIn.getNextEntry();
             }
         }
+        progressListener.onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.SUCCESS, null);
         return objs;
     }
 

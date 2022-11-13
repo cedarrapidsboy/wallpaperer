@@ -106,67 +106,9 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
         setupRecyclerView();
 
         //Image Chooser
-        imageChooserResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    HashSet<Uri> sources = new HashSet<>();
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        // There are no request codes
-                        Intent data = result.getData();
-                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
-                        if (data != null) {
-                            if (data.getData() != null) {
-                                //Single select
-                                sources.add(data.getData());
-
-                            } else if (data.getClipData() != null) {
-                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                    Uri uri = data.getClipData().getItemAt(i).getUri();
-                                    sources.add(uri);
-                                }
-                            }
-                            WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
-                        }
-                    }
-                });
-
-
+        registerImageChooser();
         //Import chooser
-        importChooserResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    HashSet<Uri> sources = new HashSet<>();
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        // There are no request codes
-                        Intent data = result.getData();
-                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
-                        if (data != null) {
-                            if (data.getData() != null) {
-                                //Single select
-                                sources.add(data.getData());
-                            } else if (data.getClipData() != null) {
-                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                    Uri uri = data.getClipData().getItemAt(i).getUri();
-                                    sources.add(uri);
-                                }
-                            }
-                            sources.forEach(zipUri -> {
-                                try {
-                                    LinkedList<ImageObject> imported = StorageUtils.importBackup(this, zipUri);
-                                    if (imported != null)
-                                        imported.forEach(imageObject -> {
-                                            if (store.getImageObject(imageObject.getId()) == null)
-                                                store.addImageObject(imageObject);
-                                        });
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                            runOnUiThread(() -> adapter.notifyDataSetChanged());
-                        }
-                    }
-                });
+        registerImportChooser();
 
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -192,6 +134,79 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
             }
             timerArc.start();
         }
+    }
+
+    /**
+     * For when the (+) button is clicked we need an image chooser
+     */
+    private void registerImageChooser() {
+        imageChooserResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    HashSet<Uri> sources = new HashSet<>();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // There are no request codes
+                        Intent data = result.getData();
+                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        if (data != null) {
+                            if (data.getData() != null) {
+                                //Single select
+                                sources.add(data.getData());
+
+                            } else if (data.getClipData() != null) {
+                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                    Uri uri = data.getClipData().getItemAt(i).getUri();
+                                    sources.add(uri);
+                                }
+                            }
+                            WallpaperManager.getInstance().addWallpaperAddedListener(this);
+                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
+                        }
+                    }
+                });
+    }
+
+    /**
+     * For when the import function is used and we need a ZIP chooser.
+     */
+    private void registerImportChooser() {
+        importChooserResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    HashSet<Uri> sources = new HashSet<>();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // There are no request codes
+                        Intent data = result.getData();
+                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        if (data != null) {
+                            if (data.getData() != null) {
+                                //Single select
+                                sources.add(data.getData());
+                            } else if (data.getClipData() != null) {
+                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                    Uri uri = data.getClipData().getItemAt(i).getUri();
+                                    sources.add(uri);
+                                }
+                            }
+                            BackgroundExecutor.getExecutor().execute(()-> {
+                                sources.forEach(zipUri -> {
+                                    try {
+
+                                        LinkedList<ImageObject> imported = StorageUtils.importBackup(this, zipUri, this);
+                                        if (imported != null)
+                                            imported.forEach(imageObject -> {
+                                                if (store.getImageObject(imageObject.getId()) == null)
+                                                    store.addImageObject(imageObject);
+                                            });
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                        onWallpaperLoadingFinished(WallpaperManager.WallpaperAddedListener.ERROR, e.getMessage());
+                                    }
+                                });
+                            });
+                        }
+                    }
+                });
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -727,7 +742,7 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @Override
     public void onWallpaperLoadingStarted(int size) {
         loadingDialog = ProgressDialogFragment.newInstance(size);
-        loadingDialog.showNow(getSupportFragmentManager(), "add_progress");
+        runOnUiThread(()-> loadingDialog.showNow(getSupportFragmentManager(), "add_progress"));
     }
 
     @Override
@@ -738,7 +753,8 @@ public class MainActivity extends AppCompatActivity implements WallpaperManager.
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onWallpaperLoadingFinished(int status, String msg) {
-        loadingDialog.dismiss();
+        if (loadingDialog != null)
+            loadingDialog.dismiss();
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs(context);
         invalidateOptionsMenu();
