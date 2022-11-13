@@ -54,6 +54,12 @@ The interval between automatic home screen wallpaper changes. The minimum delay 
 ### Battery optimization settings
 Android aggressively manages the power consumption of apps by placing them into a *Doze* mode after the device has been inactive for a while. While in doze mode, the wallpaper changing job will not run and its next run time becomes unpredictable. To make the wallpaper interval more predictable it is recommended that you don't allow Android to *optimize* this app. Touch this setting to open the Android system menu for battery optimization. Use that system menu to remove this app from the optimized apps list.
 
+### Export
+Create a ZIP file containing all of the images managed by this app. The file will be stored in the device's Downloads directory.
+
+### Import
+Restore images that were exported via the above *Export* function. Images that are already in the app's gallery will not be overwritten.
+
 ## System Requirements
 * Android 9 (Pie) +
 * ~800MB of free storage (app will not add new images under this threshold to protect system stability)
