@@ -147,8 +147,8 @@ public class WallpaperWorker extends Worker {
         try {
             Uri imgUri;
             if (imgObject == null) {
-                int pos = store.getLastWallpaperPos();
-                if (store.getLastWallpaperId().equals("")) {
+                int pos = store.getActiveWallpaperPos();
+                if (store.getActiveWallpaperId().equals("")) {
                     //Image wasn't found at its expected position.
                     //Back-up the pointer so whatever slid into place
                     //will be the next paper

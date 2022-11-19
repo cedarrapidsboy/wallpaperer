@@ -18,7 +18,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
-import android.widget.Adapter;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
@@ -50,19 +49,16 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
-import com.moosedrive.wallpaperer.utils.IExportListener;
 import com.moosedrive.wallpaperer.utils.PreferenceHelper;
 import com.moosedrive.wallpaperer.utils.StorageUtils;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperWorker;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
@@ -71,7 +67,7 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
  */
 public class MainActivity extends AppCompatActivity
         implements WallpaperManager.WallpaperSetListener,
-        ImageStore.ImageStoreSortListener,
+        ImageStore.ImageStoreListener,
         RVAdapter.ItemClickListener,
         SharedPreferences.OnSharedPreferenceChangeListener,
         WallpaperManager.IWallpaperAddedListener
@@ -99,9 +95,6 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         context = this;
         store = ImageStore.getInstance();
-        if (store.size() == 0)
-            store.updateFromPrefs(context);
-        store.addSortListener(this);
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -115,7 +108,9 @@ public class MainActivity extends AppCompatActivity
         constraintLayout = findViewById(R.id.constraint_layout);
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
-
+        store.addListener(this);
+        if (store.size() == 0)
+            store.updateFromPrefs(context);
         //Image Chooser
         registerImageChooser();
 
@@ -181,7 +176,7 @@ public class MainActivity extends AppCompatActivity
     protected void onResume() {
         super.onResume();
         WallpaperManager.getInstance().addWallpaperSetListener(this);
-        adapter.notifyDataSetChanged();
+        //adapter.notifyDataSetChanged();
     }
 
     private void runFirstTimeShowcase() {
@@ -272,6 +267,7 @@ public class MainActivity extends AppCompatActivity
                     //must be run on main thread
                     gInstance.clearMemory();
                 });
+                //TODO data listener delImageObject
                 for (ImageObject obj : store.getImageObjectArray())
                     if (!StorageUtils.sourceExists(this, obj.getUri()))
                         store.delImageObject(obj.getId());
@@ -292,7 +288,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(R.id.menu_goto).setVisible(!store.getLastWallpaperId().equals(""));
+        menu.findItem(R.id.menu_goto).setVisible(!store.getActiveWallpaperId().equals(""));
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -328,7 +324,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onDestroy() {
-        store.removeSortListener(this);
+        store.removeListener(this);
         rv.removeOnScrollListener(preloader);
         WallpaperManager.getInstance().removeWallpaperSetListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
@@ -405,7 +401,8 @@ public class MainActivity extends AppCompatActivity
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                                        //TODO data listener shuffleImages
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
                             break;
@@ -423,7 +420,8 @@ public class MainActivity extends AppCompatActivity
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                                        //TODO data listener replace
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
                             break;
@@ -435,7 +433,7 @@ public class MainActivity extends AppCompatActivity
                 popupMenu.show();
                 return true;
             case (R.id.menu_goto):
-                runOnUiThread(() -> rv.scrollToPosition(store.getLastWallpaperPos()));
+                runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -464,7 +462,7 @@ public class MainActivity extends AppCompatActivity
                         store.clear(false);
                         toggler.setChecked(false);
                         StorageUtils.CleanUpOrphans(getBaseContext().getFilesDir().getPath());
-                        adapter.notifyDataSetChanged();
+                        //adapter.notifyDataSetChanged();
                     })
                     .show();
         }
@@ -527,9 +525,9 @@ public class MainActivity extends AppCompatActivity
                 final ImageObject item = adapter.getData().get(position);
                 final int refPos = store.getReferencePosition(item.getId());
                 boolean toggled = false;
-                boolean wasActiveWallpaper = store.getLastWallpaperId().equals(item.getId());
+                boolean wasActiveWallpaper = store.getActiveWallpaperId().equals(item.getId());
                 store.delImageObject(item.getId());
-                adapter.removeItem(position);
+                //adapter.removeItem(position);
                 if (store.size() == 0) {
                     toggler.setChecked(false);
                     toggled = true;
@@ -542,9 +540,9 @@ public class MainActivity extends AppCompatActivity
 
                     store.addImageObject(item, refPos);
                     if (wasActiveWallpaper) {
-                        store.setLastWallpaperId(item.getId(), true);
+                        store.setActiveWallpaper(item.getId());
                     }
-                    adapter.notifyItemInserted(position);
+                    //adapter.notifyItemInserted(position);
                     if (fToggled)
                         toggler.setChecked(true);
                     invalidateOptionsMenu();
@@ -574,17 +572,16 @@ public class MainActivity extends AppCompatActivity
                 if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
                     int fromPosition = viewHolder.getBindingAdapterPosition();
                     int toPosition = target.getBindingAdapterPosition();
-                    if (store.moveImageObject(store.getImageObject(fromPosition), toPosition)) {
-                        runOnUiThread(() -> {
-                            RVAdapter rvAdapter = (RVAdapter) recyclerView.getAdapter();
-                            if (rvAdapter != null)
-                                rvAdapter.notifyItemMoved(fromPosition, toPosition);
-                        });
-                        return true;
-                    }
+                    //TODO Data model listener OnMove
+                    store.moveImageObject(store.getImageObject(fromPosition), toPosition, false);
+                    return true;
                 }
                 return false;
             }
+
+
+
+
         };
 
         if (itemMoveHelper == null)
@@ -620,7 +617,7 @@ public class MainActivity extends AppCompatActivity
                 WallpaperWorker.scheduleRandomWallpaper(context);
             }
         } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
+            runOnUiThread(() -> adapter.notifyItemRangeChanged(0, store.getImageObjectArray().length));
         else if (key.equals(getString(R.string.preference_worker_last_queue))) {
             if (PreferenceHelper.isActive(context))
                 timerArc.start();
@@ -632,9 +629,10 @@ public class MainActivity extends AppCompatActivity
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
         } else if (key.equals(getString(R.string.last_wallpaper))) {
-            store.setLastWallpaperId(sharedPreferences.getString(getString(R.string.last_wallpaper), ""), false);
+            store.setActiveWallpaper(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
             invalidateOptionsMenu();
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
+            //TODO Data listener setLastWallpaperId
+            //runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
     }
 
@@ -721,13 +719,66 @@ public class MainActivity extends AppCompatActivity
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
-        runOnUiThread(() -> adapter.notifyDataSetChanged());
+        //TODO Data listener wallpaper loading finished
+        //runOnUiThread(() -> adapter.notifyDataSetChanged());
+    }
+
+    private final Object sortListenerLock = new Object();
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    public void onSortCriteriaChanged(int prevSortCriteria) {
+        synchronized (sortListenerLock) {
+            if (prevSortCriteria != store.getSortCriteria() && adapter != null)
+                runOnUiThread(() -> adapter.notifyDataSetChanged());
+        }
+    }
+
+    @Override
+    public void onDelete(ImageObject obj, int lastPos) {
+        synchronized (sortListenerLock) {
+            runOnUiThread(() -> adapter.notifyItemRemoved(lastPos));
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
-    public void onImageStoreSortChanged() {
-        if (adapter != null)
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
+    public void onShuffle() {
+        synchronized (sortListenerLock) {
+            runOnUiThread(()->adapter.notifyDataSetChanged());
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    public void onClear() {
+        synchronized (sortListenerLock) {
+            runOnUiThread(()->adapter.notifyDataSetChanged());
+        }
+    }
+
+    @Override
+    public void onMove(int oldPos, int newPos) {
+        synchronized (sortListenerLock) {
+            runOnUiThread(()->adapter.notifyItemMoved(oldPos, newPos));
+        }
+    }
+
+    @Override
+    public void onSetActive(ImageObject activeObj, ImageObject prevObj) {
+        synchronized (sortListenerLock) {
+            int prevPos = (prevObj != null)?store.getPosition(prevObj.getId()):-1;
+            int activePos = (activeObj != null)?store.getPosition(activeObj.getId()):-1;
+            if (prevPos > -1)
+                runOnUiThread(()->adapter.notifyItemChanged(prevPos));
+            if (activePos > -1)
+                runOnUiThread(()->adapter.notifyItemChanged(activePos));
+        }
+    }
+
+    @Override
+    public void onAdd(ImageObject obj, int pos) {
+        synchronized (sortListenerLock) {
+            runOnUiThread(()->adapter.notifyItemInserted(pos));
+        }
     }
 }

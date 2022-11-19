@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -62,7 +63,6 @@ public class ImageStore {
     private final List<ImageObject> orderedImages;
     private final List<TreeSet<ImageObject>> sortedImages;
     private String lastWallpaperId = "";
-    private int lastWallpaperPos = -1;
 
     private ImageStore() {
         // The entire image repository
@@ -105,7 +105,7 @@ public class ImageStore {
      *
      * @return the last wallpaper id
      */
-    public String getLastWallpaperId() {
+    public String getActiveWallpaperId() {
         return lastWallpaperId;
     }
 
@@ -114,29 +114,24 @@ public class ImageStore {
      *
      * @return the last wallpaper pos
      */
-    public int getLastWallpaperPos() {
-        return lastWallpaperPos;
-    }
-
-    /**
-     * Sets last wallpaper pos.
-     *
-     * @param lastPos the last pos
-     */
-    public void setLastWallpaperPos(int lastPos) {
-        lastWallpaperPos = lastPos;
+    public int getActiveWallpaperPos() {
+        return getPosition(lastWallpaperId);
     }
 
     /**
      * Sets last wallpaper id.
      *
      * @param lastWallpaperId the last wallpaper id
-     * @param force           the force
      */
-    public void setLastWallpaperId(String lastWallpaperId, boolean force) {
-        this.lastWallpaperId = lastWallpaperId;
-        if (force || !lastWallpaperId.equals(""))
-            this.lastWallpaperPos = getPosition(lastWallpaperId);
+    public void setActiveWallpaper(String lastWallpaperId) {
+        if (!this.lastWallpaperId.equals(lastWallpaperId)) {
+            String prevId = this.lastWallpaperId;
+            this.lastWallpaperId = lastWallpaperId;
+            listeners
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .forEach(listener -> listener.onSetActive(getImageObject(this.lastWallpaperId), getImageObject(prevId)));
+        }
     }
 
     /**
@@ -144,12 +139,15 @@ public class ImageStore {
      */
     public void shuffleImages() {
         Collections.shuffle(orderedImages);
-        if (lastWallpaperPos > -1 && !lastWallpaperId.equals("")) {
+        if (!lastWallpaperId.isEmpty()) {
             ImageObject swapImage = referenceImages.get(lastWallpaperId);
             orderedImages.remove(swapImage);
             orderedImages.add(0, swapImage);
-            lastWallpaperPos = 0;
         }
+        listeners
+                .stream()
+                .filter(Objects::nonNull)
+                .forEach(ImageStoreListener::onShuffle);
     }
 
     /**
@@ -164,7 +162,6 @@ public class ImageStore {
         edit.putString("sources", imageArray.toString());
         edit.putInt("sort", getSortCriteria());
         edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
-        edit.putInt(context.getString(R.string.last_wallpaper_pos), lastWallpaperPos);
         edit.apply();
     }
 
@@ -205,8 +202,7 @@ public class ImageStore {
             e.printStackTrace();
         }
         replace(loadedImgs);
-        lastWallpaperId = prefs.getString(context.getString(R.string.last_wallpaper), "");
-        lastWallpaperPos = prefs.getInt(context.getString(R.string.last_wallpaper_pos), -1);
+        setActiveWallpaper(prefs.getString(context.getString(R.string.last_wallpaper), ""));
         setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
 
@@ -267,15 +263,17 @@ public class ImageStore {
     public synchronized boolean addImageObject(ImageObject imgTry, int refPosition) {
         ImageObject img = referenceImages.put(imgTry.getId(), imgTry);
         int index = refPosition;
-        boolean notExists = (img == null || img != imgTry);
-        if (notExists) {
+        if (img == null || img != imgTry) {
             if (index < 0 || index > orderedImages.size())
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
             sortedImages.forEach(imgarray -> imgarray.add(imgTry));
+            listeners.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(listener -> listener.onAdd(imgTry, getPosition(imgTry.getId())));
+            return true;
         }
-        setLastWallpaperId(getLastWallpaperId(), false);
-        return notExists;
+        return false;
     }
 
     /**
@@ -286,15 +284,17 @@ public class ImageStore {
     public synchronized void delImageObject(String id) {
         ImageObject deadImgWalking = referenceImages.get(id);
         if (deadImgWalking != null) {
+            int pos = getPosition(id);
             referenceImages.remove(id);
             orderedImages.remove(deadImgWalking);
             sortedImages.forEach(imgArray -> imgArray.remove(deadImgWalking));
-            if (getLastWallpaperId().equals(deadImgWalking.getId())) {
-                lastWallpaperId = "";
-            } else {
-                //Reset the last wallpaper position to the repositioned place
-                setLastWallpaperId(getLastWallpaperId(), false);
+            if (getActiveWallpaperId().equals(deadImgWalking.getId())) {
+                setActiveWallpaper("");
             }
+            listeners
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .forEach(listener -> listener.onDelete(deadImgWalking, pos));
         }
     }
 
@@ -356,7 +356,7 @@ public class ImageStore {
     }
 
     /**
-     * Replace all objects in the ImageStore with the provided colection
+     * Replace all objects in the ImageStore with the provided collection
      *
      * @param col the col
      */
@@ -394,8 +394,12 @@ public class ImageStore {
         referenceImages.clear();
         orderedImages.clear();
         if (!listsOnly)
-            setLastWallpaperId("", true);
+            setActiveWallpaper("");
         sortedImages.forEach(TreeSet::clear);
+        listeners
+                .stream()
+                .filter(Objects::nonNull)
+                .forEach(ImageStoreListener::onClear);
     }
 
     /**
@@ -408,7 +412,7 @@ public class ImageStore {
     }
 
 
-    private final Set<ImageStore.ImageStoreSortListener> sortListeners = new HashSet<>();
+    private final Set<ImageStoreListener> listeners = new HashSet<>();
 
 
     /**
@@ -426,14 +430,12 @@ public class ImageStore {
      * @param sortCriteria the sort criteria
      */
     public void setSortCriteria(int sortCriteria) {
+        int prevSortCriteria = this.sortCriteria;
         this.sortCriteria = sortCriteria;
-        if (!lastWallpaperId.equals("")) {
-            //Update the position of the last wallpaper
-            setLastWallpaperId(lastWallpaperId, false);
-        }
-        for (ImageStoreSortListener sl : sortListeners) {
-            sl.onImageStoreSortChanged();
-        }
+        listeners
+                .stream()
+                .filter(Objects::nonNull)
+                .forEach(listener -> listener.onSortCriteriaChanged(prevSortCriteria));
     }
 
     /**
@@ -443,13 +445,18 @@ public class ImageStore {
      * @param newPos the new pos
      * @return the boolean
      */
-    public boolean moveImageObject(ImageObject object, int newPos) {
+    public boolean moveImageObject(ImageObject object, int newPos, boolean updateView) {
         if (referenceImages.containsKey(object.getId())) {
-            String previousActiveId = lastWallpaperId;
+            int prevPos = getPosition(object.getId());
+            boolean wasActive = getActiveWallpaperId().equals(object.getId());
             delImageObject(object.getId());
-            if (previousActiveId.equals(object.getId()))
-                setLastWallpaperId(previousActiveId, true);
+            if (wasActive)
+                lastWallpaperId = object.getId();
             addImageObject(object, newPos);
+            if (updateView)
+                listeners.stream()
+                        .filter(Objects::nonNull)
+                        .forEach(listener -> listener.onMove(prevPos, newPos));
             return true;
         }
         return false;
@@ -460,8 +467,8 @@ public class ImageStore {
      *
      * @param sl the sl
      */
-    public void addSortListener(ImageStoreSortListener sl) {
-        sortListeners.add(sl);
+    public void addListener(ImageStoreListener sl) {
+        listeners.add(sl);
     }
 
     /**
@@ -469,18 +476,25 @@ public class ImageStore {
      *
      * @param sl the sl
      */
-    public void removeSortListener(ImageStoreSortListener sl) {
-        sortListeners.remove(sl);
+    public void removeListener(ImageStoreListener sl) {
+        listeners.remove(sl);
     }
 
     /**
      * The interface Image store sort listener.
      */
-    public interface ImageStoreSortListener {
+    public interface ImageStoreListener {
         /**
          * On image store sort changed.
          */
-        void onImageStoreSortChanged();
+        void onSortCriteriaChanged(int prevSortCriteria);
+        void onDelete(ImageObject obj, int lastPos);
+        void onShuffle();
+        void onClear();
+        void onMove(int oldPos, int newPos);
+        void onSetActive(ImageObject activeObj, ImageObject prevObj);
+        void onAdd(ImageObject obj, int pos);
     }
+
 
 }
