@@ -67,11 +67,6 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
         }
     }
 
-    @Override
-    public void onWallpaperAdded(ImageObject img) {
-
-    }
-
     ProgressDialogFragment loadingDialog;
 
     @Override

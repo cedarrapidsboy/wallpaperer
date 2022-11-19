@@ -105,7 +105,7 @@ public class ImageStore {
      *
      * @return the last wallpaper id
      */
-    public String getActiveWallpaperId() {
+    public synchronized String getActiveWallpaperId() {
         return lastWallpaperId;
     }
 
@@ -114,7 +114,7 @@ public class ImageStore {
      *
      * @return the last wallpaper pos
      */
-    public int getActiveWallpaperPos() {
+    public synchronized int getActiveWallpaperPos() {
         return getPosition(lastWallpaperId);
     }
 
@@ -123,7 +123,7 @@ public class ImageStore {
      *
      * @param lastWallpaperId the last wallpaper id
      */
-    public void setActiveWallpaper(String lastWallpaperId) {
+    public synchronized void setActiveWallpaper(String lastWallpaperId) {
         if (!this.lastWallpaperId.equals(lastWallpaperId)) {
             String prevId = this.lastWallpaperId;
             this.lastWallpaperId = lastWallpaperId;
@@ -137,7 +137,7 @@ public class ImageStore {
     /**
      * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
      */
-    public void shuffleImages() {
+    public synchronized void shuffleImages() {
         Collections.shuffle(orderedImages);
         if (!lastWallpaperId.isEmpty()) {
             ImageObject swapImage = referenceImages.get(lastWallpaperId);
@@ -250,17 +250,16 @@ public class ImageStore {
      *
      * @param img the img
      */
-    public synchronized boolean addImageObject(ImageObject img) {
-        return addImageObject(img, -1);
+    public synchronized void addImageObject(ImageObject img) {
+        addImageObject(img, -1);
     }
 
     /**
      * Add image object.
-     *
-     * @param imgTry      the img
+     *  @param imgTry      the img
      * @param refPosition the position Where to place the new object, or -1 to append
      */
-    public synchronized boolean addImageObject(ImageObject imgTry, int refPosition) {
+    public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
         ImageObject img = referenceImages.put(imgTry.getId(), imgTry);
         int index = refPosition;
         if (img == null || img != imgTry) {
@@ -271,9 +270,7 @@ public class ImageStore {
             listeners.stream()
                     .filter(Objects::nonNull)
                     .forEach(listener -> listener.onAdd(imgTry, getPosition(imgTry.getId())));
-            return true;
         }
-        return false;
     }
 
     /**
@@ -360,10 +357,11 @@ public class ImageStore {
      *
      * @param col the col
      */
-    public void replace(Collection<ImageObject> col) {
+    public synchronized void replace(Collection<ImageObject> col) {
         store.clear(true);
         col.forEach(this::addImageObject);
     }
+
 
     /**
      * Gets position.
@@ -420,7 +418,7 @@ public class ImageStore {
      *
      * @return the sort criteria
      */
-    public int getSortCriteria() {
+    public synchronized int getSortCriteria() {
         return sortCriteria;
     }
 
@@ -429,7 +427,7 @@ public class ImageStore {
      *
      * @param sortCriteria the sort criteria
      */
-    public void setSortCriteria(int sortCriteria) {
+    public synchronized void setSortCriteria(int sortCriteria) {
         int prevSortCriteria = this.sortCriteria;
         this.sortCriteria = sortCriteria;
         listeners
@@ -443,9 +441,8 @@ public class ImageStore {
      *
      * @param object the object
      * @param newPos the new pos
-     * @return the boolean
      */
-    public boolean moveImageObject(ImageObject object, int newPos, boolean updateView) {
+    public synchronized void moveImageObject(ImageObject object, int newPos) {
         if (referenceImages.containsKey(object.getId())) {
             int prevPos = getPosition(object.getId());
             boolean wasActive = getActiveWallpaperId().equals(object.getId());
@@ -453,13 +450,10 @@ public class ImageStore {
             if (wasActive)
                 lastWallpaperId = object.getId();
             addImageObject(object, newPos);
-            if (updateView)
-                listeners.stream()
-                        .filter(Objects::nonNull)
-                        .forEach(listener -> listener.onMove(prevPos, newPos));
-            return true;
+            listeners.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(listener -> listener.onMove(prevPos, newPos));
         }
-        return false;
     }
 
     /**

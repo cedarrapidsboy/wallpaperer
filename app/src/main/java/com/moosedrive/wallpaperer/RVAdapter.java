@@ -128,22 +128,12 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @Override
     public long getItemId(int position) {
-        return store.getImageObject(position).hashCode();
+        return store.getImageObject(position).getId().hashCode();
     }
 
     @Override
     public int getItemCount() {
         return store.size();
-    }
-
-    @Override
-    public void onViewRecycled(@NonNull ImageHolder holder) {
-        super.onViewRecycled(holder);
-    }
-
-    @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
     }
 
     public void setClickListener(ItemClickListener itemClickListener) {

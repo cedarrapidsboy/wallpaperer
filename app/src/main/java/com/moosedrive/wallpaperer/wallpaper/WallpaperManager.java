@@ -137,10 +137,7 @@ public class WallpaperManager {
                                         ImageObject img = new ImageObject(uCopiedFile, hash, filename, size, type, dNow, (creationDate > 0) ? new Date(creationDate) : dNow);
                                         img.generateThumbnail(context);
                                         img.setColor(img.getColorFromBitmap(context));
-                                        if (store.addImageObject(img)) {
-                                            for (IWallpaperAddedListener wal : wallpaperAddedListeners)
-                                                wal.onWallpaperAdded(img);
-                                        }
+                                        store.addImageObject(img);
                                     } catch (NoSuchAlgorithmException | IOException e) {
                                         e.printStackTrace();
                                     }
@@ -198,13 +195,6 @@ public class WallpaperManager {
          * The constant ERROR.
          */
         int ERROR = 1;
-
-        /**
-         * On wallpaper added.
-         *
-         * @param img the img
-         */
-        void onWallpaperAdded(ImageObject img);
 
         /**
          * On wallpaper loading started.

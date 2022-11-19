@@ -108,7 +108,6 @@ public class MainActivity extends AppCompatActivity
         constraintLayout = findViewById(R.id.constraint_layout);
         //Setup the RecyclerView for all the cards
         setupRecyclerView();
-        store.addListener(this);
         if (store.size() == 0)
             store.updateFromPrefs(context);
         //Image Chooser
@@ -170,13 +169,14 @@ public class MainActivity extends AppCompatActivity
                 });
     }
 
-
+    private boolean inForeground = false;
     @SuppressLint("NotifyDataSetChanged")
     @Override
     protected void onResume() {
         super.onResume();
         WallpaperManager.getInstance().addWallpaperSetListener(this);
-        //adapter.notifyDataSetChanged();
+        runOnUiThread(()->adapter.notifyDataSetChanged());
+        inForeground = true;
     }
 
     private void runFirstTimeShowcase() {
@@ -251,6 +251,7 @@ public class MainActivity extends AppCompatActivity
 
         adapter.setHasStableIds(true);
         rv.setAdapter(adapter);
+        store.addListener(this);
         adapter.setClickListener(this);
         SwipeRefreshLayout swipeLayout = findViewById(R.id.swiperefresh);
 
@@ -267,12 +268,12 @@ public class MainActivity extends AppCompatActivity
                     //must be run on main thread
                     gInstance.clearMemory();
                 });
-                //TODO data listener delImageObject
                 for (ImageObject obj : store.getImageObjectArray())
                     if (!StorageUtils.sourceExists(this, obj.getUri()))
                         store.delImageObject(obj.getId());
+                //Refresh the whole list
                 runOnUiThread(() -> adapter.notifyDataSetChanged());
-                //Save aftr refresh -- otherwise data will be saved onPause()
+                //Save after refresh -- otherwise data will be saved onPause()
                 store.saveToPrefs(context);
                 swipeLayout.setRefreshing(false);
             });
@@ -318,8 +319,9 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onPause() {
-        super.onPause();
         store.saveToPrefs(this);
+        inForeground = false;
+        super.onPause();
     }
 
     @Override
@@ -397,11 +399,10 @@ public class MainActivity extends AppCompatActivity
                                         setResult(Activity.RESULT_CANCELED);
                                     })
                                     .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
-                                        store.shuffleImages();
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
+                                        store.shuffleImages();
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        //TODO data listener shuffleImages
                                         runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
@@ -420,7 +421,6 @@ public class MainActivity extends AppCompatActivity
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        //TODO data listener replace
                                         runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
@@ -572,8 +572,7 @@ public class MainActivity extends AppCompatActivity
                 if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
                     int fromPosition = viewHolder.getBindingAdapterPosition();
                     int toPosition = target.getBindingAdapterPosition();
-                    //TODO Data model listener OnMove
-                    store.moveImageObject(store.getImageObject(fromPosition), toPosition, false);
+                    store.moveImageObject(store.getImageObject(fromPosition), toPosition);
                     return true;
                 }
                 return false;
@@ -631,8 +630,6 @@ public class MainActivity extends AppCompatActivity
         } else if (key.equals(getString(R.string.last_wallpaper))) {
             store.setActiveWallpaper(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
             invalidateOptionsMenu();
-            //TODO Data listener setLastWallpaperId
-            //runOnUiThread(() -> adapter.notifyDataSetChanged());
         }
     }
 
@@ -651,11 +648,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    public void onWallpaperAdded(ImageObject img) {
-        //Tried to update adapter on image at a time... was getting IOOBE
     }
 
     @Override
@@ -719,66 +711,54 @@ public class MainActivity extends AppCompatActivity
                     .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
                     .show());
         }
-        //TODO Data listener wallpaper loading finished
-        //runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
-    private final Object sortListenerLock = new Object();
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onSortCriteriaChanged(int prevSortCriteria) {
-        synchronized (sortListenerLock) {
-            if (prevSortCriteria != store.getSortCriteria() && adapter != null)
-                runOnUiThread(() -> adapter.notifyDataSetChanged());
-        }
+        if (prevSortCriteria != store.getSortCriteria())
+            runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
     @Override
     public void onDelete(ImageObject obj, int lastPos) {
-        synchronized (sortListenerLock) {
+        if (inForeground)
             runOnUiThread(() -> adapter.notifyItemRemoved(lastPos));
-        }
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onShuffle() {
-        synchronized (sortListenerLock) {
-            runOnUiThread(()->adapter.notifyDataSetChanged());
-        }
+        runOnUiThread(()->adapter.notifyDataSetChanged());
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onClear() {
-        synchronized (sortListenerLock) {
-            runOnUiThread(()->adapter.notifyDataSetChanged());
-        }
+        runOnUiThread(()->adapter.notifyDataSetChanged());
     }
 
     @Override
     public void onMove(int oldPos, int newPos) {
-        synchronized (sortListenerLock) {
-            runOnUiThread(()->adapter.notifyItemMoved(oldPos, newPos));
-        }
+        runOnUiThread(()->adapter.notifyItemMoved(oldPos, newPos));
     }
 
     @Override
     public void onSetActive(ImageObject activeObj, ImageObject prevObj) {
-        synchronized (sortListenerLock) {
-            int prevPos = (prevObj != null)?store.getPosition(prevObj.getId()):-1;
+        int prevPos = (prevObj != null)?store.getPosition(prevObj.getId()):-1;
             int activePos = (activeObj != null)?store.getPosition(activeObj.getId()):-1;
             if (prevPos > -1)
                 runOnUiThread(()->adapter.notifyItemChanged(prevPos));
             if (activePos > -1)
                 runOnUiThread(()->adapter.notifyItemChanged(activePos));
-        }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onAdd(ImageObject obj, int pos) {
-        synchronized (sortListenerLock) {
-            runOnUiThread(()->adapter.notifyItemInserted(pos));
-        }
+        // notifyDataSetChanged needed to avoid IOOBE on recyclerview
+        //   that happens on rapid adds (due to predictive animation)
+        if (inForeground)
+            runOnUiThread(()->adapter.notifyDataSetChanged());
     }
 }

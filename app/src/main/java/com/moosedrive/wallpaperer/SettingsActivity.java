@@ -185,10 +185,6 @@ public class SettingsActivity extends AppCompatActivity {
                     });
         }
 
-        @Override
-        public void onWallpaperAdded(ImageObject img) {
-
-        }
         private ProgressDialogFragment importDialog;
         @Override
         public void onWallpaperLoadingStarted(int size, String message) {
