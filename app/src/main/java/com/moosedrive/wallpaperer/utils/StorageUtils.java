@@ -1,7 +1,9 @@
 package com.moosedrive.wallpaperer.utils;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -11,12 +13,17 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
+import android.webkit.MimeTypeMap;
 
+import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
+import androidx.work.Data;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
-import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
+import com.moosedrive.wallpaperer.data.ImportData;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,6 +33,7 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,6 +57,7 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -471,12 +480,51 @@ public class StorageUtils {
             listener.onExportFinished(IExportListener.SUCCESS, "No images to export.");
         }
     }
+    public static class ImportBackupWorker extends Worker {
+        public static final String BACKUP_SOURCES = "backup_sources";
+        public static final String STATUS_MESSAGE = "status_message";
+        public static final String PROGRESS_MAX = "progress_max";
+        public static final String PROGRESS_CURRRENT = "progress_current";
 
-    public static void importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, WallpaperManager.IWallpaperAddedListener progressListener) throws IOException {
+        public ImportBackupWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
+            super(context, workerParams);
+        }
+
+        @NonNull
+        @Override
+        public Result doWork() {
+            if (ImportData.getInstance().importSources.size() > 0) {
+                ArrayList<String> errorArchives = new ArrayList<>();
+                ArrayList<Uri> uriSources = ImportData.getInstance().importSources;
+                AtomicInteger i = new AtomicInteger(1);
+                for (Uri zipUri : uriSources.toArray(new Uri[0])){
+                    try {
+                        setProgressAsync(new Data.Builder().putString(STATUS_MESSAGE,"Importing images from archive " + i.get() + " of " + uriSources.size()).build());
+                        int importResult = StorageUtils.importBackup(getApplicationContext(), zipUri, ImageStore.getInstance(), i.get(), uriSources.size(), this);
+                        if (importResult != 0)
+                            errorArchives.add(zipUri.getLastPathSegment());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Imported failed. Unable to open file.").build());
+                    }
+                    i.getAndIncrement();
+                }
+                StringBuilder sb = new StringBuilder("Imported ")
+                    .append(uriSources.size() - errorArchives.size())
+                    .append(" archives.");
+                if (errorArchives.size() > 0)
+                    sb.append(" ").append(errorArchives.size()).append(" archives failed.");
+                setProgressAsync(new Data.Builder().putString(STATUS_MESSAGE,sb.toString()).build());
+                return Result.success();
+            }
+            return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Imported failed. Nothing to do.").build());
+        }
+    }
+    public static final int ERROR_INVALID_MANIFEST = 100;
+    public static final int ERROR_IMAGES_NOT_FOUND = 200;
+    public static int importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, ImportBackupWorker importBackupWorker) throws IOException {
         LinkedList<ImageObject> objs = new LinkedList<>();
         //get manifest
-        progressListener.onWallpaperLoadingStarted(Integer.MAX_VALUE, "Importing images" + ((count > 1)?" (archive "+index+" of "+count+")":"")+"...");
-        progressListener.onWallpaperLoadingIncrement(-1);
         int size = 0;
         try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
              Reader reader = new BufferedReader(new InputStreamReader
@@ -498,21 +546,19 @@ public class StorageUtils {
                 }
             }
         } catch (JSONException jsonE) {
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.ERROR, "Invalid manifest in the archive (JSON error).");
-            objs.clear();
+            return ERROR_INVALID_MANIFEST;
         }
-        int newImagesCount = 0;
+        int loopCount = 0;
+        long lastProgressUpdate = System.currentTimeMillis();
         if (objs.size() > 0) {
-            int increment = Math.round((1F / size) * (Integer.MAX_VALUE));
-            progressListener.onWallpaperLoadingIncrement(increment);
             //read all files from ZIP and slot into the
+            ArrayList<ImageObject> col = new ArrayList<>(store.getReferenceObjects());
             try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
                  BufferedInputStream bis = new BufferedInputStream(zipIn)) {
                 ZipEntry zipEntry = zipIn.getNextEntry();
                 while (zipEntry != null) {
                     ZipEntry thisEntry = zipEntry; //make it effectively final for the stream
                     //check if the filename exists in the manifest
-                    progressListener.onWallpaperLoadingIncrement(increment);
                     ImageObject img = objs.stream().filter(object -> object.getId().equals(thisEntry.getName())).findFirst().orElse(null);
                     if (img != null && store.getImageObject(img.getId()) == null) {
                         File fImageStorageFolder = StorageUtils.getStorageFolder(context);
@@ -520,16 +566,22 @@ public class StorageUtils {
                         writeFile(destination, bis);
                         img.setUri(Uri.fromFile(new File(destination)));
                         img.generateThumbnail(context);
-                        store.addImageObject(img);
-                        newImagesCount++;
+                        col.add(img);
+                    }
+                    loopCount++;
+                    long currentMillis = System.currentTimeMillis();
+                    if (currentMillis - lastProgressUpdate > 2000) {
+                        importBackupWorker.setProgressAsync(new Data.Builder().putInt(ImportBackupWorker.PROGRESS_MAX, size).putInt(ImportBackupWorker.PROGRESS_CURRRENT, loopCount).build());
+                        lastProgressUpdate = currentMillis;
                     }
                     zipEntry = zipIn.getNextEntry();
                 }
+                store.add(col);
             }
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.SUCCESS, newImagesCount + " new image(s) imported.");
         } else {
-            progressListener.onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.ERROR, "Nothing to do. The images defined in the manifest are not found in the archive.");
+            return ERROR_IMAGES_NOT_FOUND;
         }
+        return 0;
     }
 
     /**
@@ -553,5 +605,95 @@ public class StorageUtils {
         }
         return rndStr.toString();
     }
+    private static boolean isVirtualFile(Context context, Uri uri) {
+        if (!DocumentsContract.isDocumentUri(context, uri)) {
+            return false;
+        }
+        Cursor cursor = context.getContentResolver().query(
+                uri,
+                new String[]{DocumentsContract.Document.COLUMN_FLAGS},
+                null, null, null);
+        int flags = 0;
+        if (cursor.moveToFirst()) {
+            flags = cursor.getInt(0);
+        }
+        cursor.close();
+        return (flags & DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT) != 0;
+    }
+    private static InputStream getInputStreamForVirtualFile(Context context, Uri uri, String mimeTypeFilter)
+            throws IOException {
+
+        ContentResolver resolver = context.getContentResolver();
+        String[] openableMimeTypes = resolver.getStreamTypes(uri, mimeTypeFilter);
+        if (openableMimeTypes == null || openableMimeTypes.length < 1) {
+            throw new FileNotFoundException();
+        }
+        try (AssetFileDescriptor afd = resolver
+                .openTypedAssetFileDescriptor(uri, openableMimeTypes[0], null)) {
+            return afd.createInputStream();
+        }
+    }
+    private static String getMimeType(String url) {
+        String type = null;
+        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+        if (extension != null) {
+            type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+        }
+        return type;
+    }
+    public static boolean saveFile(Context context, String name, Uri sourceuri, String destinationDir, String destFileName) {
+
+        BufferedInputStream bis = null;
+        BufferedOutputStream bos = null;
+        InputStream input = null;
+        boolean hasError = false;
+
+        try {
+            if (isVirtualFile(context, sourceuri)) {
+                input = getInputStreamForVirtualFile(context, sourceuri, getMimeType(name));
+            } else {
+                input = context.getContentResolver().openInputStream(sourceuri);
+            }
+
+            boolean directorySetupResult;
+            File destDir = new File(destinationDir);
+            if (!destDir.exists()) {
+                directorySetupResult = destDir.mkdirs();
+            } else if (!destDir.isDirectory()) {
+                directorySetupResult = replaceFileWithDir(destinationDir);
+            } else {
+                directorySetupResult = true;
+            }
+
+            if (!directorySetupResult) {
+                hasError = true;
+            } else {
+                String destination = destinationDir + File.separator + destFileName;
+                int originalsize = input.available();
+
+                bis = new BufferedInputStream(input);
+                bos = new BufferedOutputStream(new FileOutputStream(destination));
+                byte[] buf = new byte[originalsize];
+                bis.read(buf);
+                do {
+                    bos.write(buf);
+                } while (bis.read(buf) != -1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            hasError = true;
+        } finally {
+            try {
+                if (bos != null) {
+                    bos.flush();
+                    bos.close();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return !hasError;
+    }
+
 }
 

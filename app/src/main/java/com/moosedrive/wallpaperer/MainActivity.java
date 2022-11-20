@@ -2,6 +2,9 @@ package com.moosedrive.wallpaperer;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -9,6 +12,7 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -31,11 +35,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.work.Data;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.bumptech.glide.Glide;
@@ -59,7 +68,9 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
 
@@ -74,6 +85,7 @@ public class MainActivity extends AppCompatActivity
         WallpaperManager.IWallpaperAddedListener
 {
 
+    public static final String CHANNEL_ID = "notifications.wallpaperer";
     final boolean isloading = false;
     RecyclerView rv;
     ImageStore store;
@@ -94,6 +106,7 @@ public class MainActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         this.instanceState = savedInstanceState;
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        createNotificationChannel();
         super.onCreate(savedInstanceState);
         context = this;
         store = ImageStore.getInstance();
@@ -340,14 +353,72 @@ public class MainActivity extends AppCompatActivity
         super.onDestroy();
     }
 
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        CharSequence name = "wallpaperer_notifications";
+        String description = "Notifications sent by the Wallpaperer app.";
+        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+        channel.setDescription(description);
+        // Register the channel with the system; you can't change the importance
+        // or other notification behaviors after this
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        notificationManager.createNotificationChannel(channel);
+    }
+
     private ActivityResultLauncher<Intent> getSettingsResultLauncher(){
         return registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() == 5){
-                        //TODO use unique code to catch import and export returns
-                        //observe the work requests and take action in the observers
-                        int i = 0;
+                    if (result.getResultCode() == SettingsActivity.IMPORT_RESULT_CODE && result.getData() != null){
+
+                        // Create an explicit intent for an Activity in your app
+                        Intent intent = new Intent(this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+                        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                                .setSmallIcon(R.drawable.vector_restore_24)
+                                .setContentTitle("Wallpaperer Import")
+                                .setContentText("Importing images...")
+                                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                                // Set the intent that will fire when the user taps the notification
+                                .setContentIntent(pendingIntent)
+                                .setOnlyAlertOnce(true)
+                                .setAutoCancel(true);
+
+                        Serializable serialUUID = result.getData().getSerializableExtra(SettingsActivity.IMPORT_UUID);
+                        if (serialUUID != null) {
+                            int notificationId = ThreadLocalRandom.current().nextInt(1000);
+                            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+                            WorkManager.getInstance(getApplicationContext())
+                                    .getWorkInfoByIdLiveData((UUID) serialUUID)
+                                    .observe(this, new Observer<WorkInfo>() {
+                                        @Override
+                                        public void onChanged(WorkInfo workInfo) {
+                                            if (workInfo != null) {
+                                                builder.setProgress(0,0,true);
+                                                Data progress = workInfo.getProgress();
+                                                if (progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE) != null)
+                                                    builder.setContentText(progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
+                                                if (progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, -1) > -1)
+                                                    builder.setProgress(progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, 0),
+                                                                    progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_CURRRENT, 0),
+                                                                    false);
+                                                if (workInfo.getState().equals(WorkInfo.State.SUCCEEDED))
+                                                    builder.setContentText("Import finished.")
+                                                            .setProgress(0,
+                                                                    0,
+                                                                    false);
+                                                else if (workInfo.getState().equals(WorkInfo.State.FAILED))
+                                                    builder.setProgress(0,0,false)
+                                                            .setContentText("Import failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
+                                                notificationManager.notify(notificationId, builder.build());
+                                            }
+                                        }
+                                    });
+                        }
                     }
                 });
     }
@@ -772,6 +843,13 @@ public class MainActivity extends AppCompatActivity
     public void onAdd(ImageObject obj, int pos) {
         // notifyDataSetChanged needed to avoid IOOBE on recyclerview
         //   that happens on rapid adds (due to predictive animation)
+        if (inForeground)
+            runOnUiThread(()->adapter.notifyDataSetChanged());
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    public void onReplace() {
         if (inForeground)
             runOnUiThread(()->adapter.notifyDataSetChanged());
     }

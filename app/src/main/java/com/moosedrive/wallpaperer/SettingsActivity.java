@@ -20,21 +20,32 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.work.Data;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.data.ImportData;
 import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
 import com.moosedrive.wallpaperer.utils.IExportListener;
 import com.moosedrive.wallpaperer.utils.StorageUtils;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SettingsActivity extends AppCompatActivity {
+
+    public static final int IMPORT_RESULT_CODE = 5;
+    public static final String IMPORT_UUID = "import_uuid";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -137,12 +148,9 @@ public class SettingsActivity extends AppCompatActivity {
          */
         public void openImportChooser() {
 
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.setType("application/zip");
             intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            //intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             importChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_imports)));
         }
@@ -154,7 +162,7 @@ public class SettingsActivity extends AppCompatActivity {
             importChooserResultLauncher = registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-                        HashSet<Uri> sources = new HashSet<>();
+                        ImportData.getInstance().importSources.clear();
                         if (result.getResultCode() == Activity.RESULT_OK) {
                             // There are no request codes
                             Intent data = result.getData();
@@ -162,30 +170,29 @@ public class SettingsActivity extends AppCompatActivity {
                             if (data != null) {
                                 if (data.getData() != null) {
                                     //Single select
-                                    sources.add(data.getData());
+                                    ImportData.getInstance().importSources.add(data.getData());
                                 } else if (data.getClipData() != null) {
                                     for (int i = 0; i < data.getClipData().getItemCount(); i++) {
                                         Uri uri = data.getClipData().getItemAt(i).getUri();
-                                        sources.add(uri);
+                                        try {
+                                            ImportData.getInstance().importSources.add(uri);
+                                        }
+                                        catch (SecurityException e){
+                                            e.printStackTrace();
+                                        }
+
                                     }
                                 }
-                                //TODO Create new work request (and get riD of wallpaperlistener stuff)
-                                //Then pass control back to main activity
-                                //requireActivity().setResult(*some unique code and intent data for worker id);
-                                //requireActivity().finish();
-                                //use notificationmanager to have notification of work being done
-                                BackgroundExecutor.getExecutor().execute(() -> {
-                                    AtomicInteger i = new AtomicInteger(1);
-                                    sources.forEach(zipUri -> {
-                                        try {
-                                            StorageUtils.importBackup(requireContext(), zipUri, ImageStore.getInstance(), i.get(), sources.size(), this);
-                                        } catch (IOException e) {
-                                            e.printStackTrace();
-                                            onWallpaperLoadingFinished(WallpaperManager.IWallpaperAddedListener.ERROR, e.getMessage());
-                                        }
-                                        i.getAndIncrement();
-                                    });
-                                });
+                                WorkRequest importWork = new OneTimeWorkRequest.Builder(StorageUtils.ImportBackupWorker.class)
+                                        .setInputData(
+                                                new Data.Builder().build()
+                                        ).build();
+                                UUID importId = importWork.getId();
+                                WorkManager.getInstance(requireContext()).enqueue(importWork);
+                                Intent importIntent = new Intent();
+                                importIntent.putExtra(IMPORT_UUID, importId);
+                                requireActivity().setResult(IMPORT_RESULT_CODE, importIntent);
+                                requireActivity().finish();
                             }
                         }
                     });

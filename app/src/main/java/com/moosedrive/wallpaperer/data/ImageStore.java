@@ -260,6 +260,14 @@ public class ImageStore {
      * @param refPosition the position Where to place the new object, or -1 to append
      */
     public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
+        addImageObject(imgTry, refPosition, true);
+    }
+    /**
+     * Add image object.
+     *  @param imgTry      the img
+     * @param refPosition the position Where to place the new object, or -1 to append
+     */
+    private synchronized void addImageObject(ImageObject imgTry, int refPosition, boolean updateView) {
         ImageObject img = referenceImages.put(imgTry.getId(), imgTry);
         int index = refPosition;
         if (img == null || img != imgTry) {
@@ -267,7 +275,8 @@ public class ImageStore {
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
             sortedImages.forEach(imgarray -> imgarray.add(imgTry));
-            listeners.stream()
+            if (updateView)
+                listeners.stream()
                     .filter(Objects::nonNull)
                     .forEach(listener -> listener.onAdd(imgTry, getPosition(imgTry.getId())));
         }
@@ -350,6 +359,13 @@ public class ImageStore {
      */
     public synchronized Collection<ImageObject> getReferenceObjects() {
         return new ArrayList<>(referenceImages.values());
+    }
+
+    public synchronized void add(Collection<ImageObject> col){
+        col.forEach(img -> addImageObject(img, -1, false));
+        listeners.stream()
+                .filter(Objects::nonNull)
+                .forEach(ImageStoreListener::onReplace);
     }
 
     /**
@@ -488,6 +504,7 @@ public class ImageStore {
         void onMove(int oldPos, int newPos);
         void onSetActive(ImageObject activeObj, ImageObject prevObj);
         void onAdd(ImageObject obj, int pos);
+        void onReplace();
     }
 
 
