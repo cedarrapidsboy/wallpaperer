@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class SettingsActivity extends AppCompatActivity {
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -87,6 +86,8 @@ public class SettingsActivity extends AppCompatActivity {
             if (button!=null){
                 button.setOnPreferenceClickListener(preference -> {
                     openImportChooser();
+                    //requireActivity().setResult(5);
+                    //requireActivity().finish();
                     return true;
                 });
             }
@@ -168,6 +169,11 @@ public class SettingsActivity extends AppCompatActivity {
                                         sources.add(uri);
                                     }
                                 }
+                                //TODO Create new work request (and get riD of wallpaperlistener stuff)
+                                //Then pass control back to main activity
+                                //requireActivity().setResult(*some unique code and intent data for worker id);
+                                //requireActivity().finish();
+                                //use notificationmanager to have notification of work being done
                                 BackgroundExecutor.getExecutor().execute(() -> {
                                     AtomicInteger i = new AtomicInteger(1);
                                     sources.forEach(zipUri -> {

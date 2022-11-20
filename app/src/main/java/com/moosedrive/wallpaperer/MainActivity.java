@@ -55,6 +55,7 @@ import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperWorker;
 import com.stfalcon.imageviewer.StfalconImageViewer;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
@@ -87,6 +88,7 @@ public class MainActivity extends AppCompatActivity
     private ItemTouchHelper itemMoveHelper;
     private ItemTouchHelper itemSwipeHelper;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
+    private ActivityResultLauncher<Intent> settingsResultLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,7 +114,7 @@ public class MainActivity extends AppCompatActivity
             store.updateFromPrefs(context);
         //Image Chooser
         registerImageChooser();
-
+        settingsResultLauncher = getSettingsResultLauncher();
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(v -> openImageChooser());
@@ -338,6 +340,18 @@ public class MainActivity extends AppCompatActivity
         super.onDestroy();
     }
 
+    private ActivityResultLauncher<Intent> getSettingsResultLauncher(){
+        return registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == 5){
+                        //TODO use unique code to catch import and export returns
+                        //observe the work requests and take action in the observers
+                        int i = 0;
+                    }
+                });
+    }
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         Intent intent;
@@ -347,7 +361,7 @@ public class MainActivity extends AppCompatActivity
                 return true;
             case (R.id.menu_settings):
                 intent = new Intent(this, SettingsActivity.class);
-                startActivity(intent);
+                settingsResultLauncher.launch(intent);
                 return true;
             case (R.id.menu_about):
                 intent = new Intent(this, AboutActivity.class);
