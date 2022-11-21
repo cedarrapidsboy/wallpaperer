@@ -2,6 +2,7 @@ package com.moosedrive.wallpaperer;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -12,7 +13,6 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,7 +27,6 @@ import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -38,7 +37,6 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -92,7 +90,6 @@ public class MainActivity extends AppCompatActivity
     ImageStore store;
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
-    Bundle instanceState;
     RecyclerViewPreloader<ImageObject> preloader;
     private ProgressDialogFragment loadingDialog;
     private Context context;
@@ -105,7 +102,6 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        this.instanceState = savedInstanceState;
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         createNotificationChannel();
         super.onCreate(savedInstanceState);
@@ -380,6 +376,11 @@ public class MainActivity extends AppCompatActivity
                         if (result.getResultCode() == SettingsActivity.IMPORT_RESULT_CODE) {
                             handleImportResult(result.getData(), pendingIntent);
                         } else if (result.getResultCode() == SettingsActivity.EXPORT_RESULT_CODE){
+
+                            Intent exploreIntent = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+                            if (exploreIntent.resolveActivityInfo(getPackageManager(), 0) != null)
+                                pendingIntent = PendingIntent.getActivity(this, 0, exploreIntent, PendingIntent.FLAG_IMMUTABLE);
+
                             handleExportResult(result.getData(), pendingIntent);
                         }
                     }
@@ -410,6 +411,10 @@ public class MainActivity extends AppCompatActivity
                             Data progress = workInfo.getProgress();
                             if (progress.getString(StorageUtils.ExportBackupWorker.STATUS_MESSAGE) != null)
                                 builder.setContentText(progress.getString(StorageUtils.ExportBackupWorker.STATUS_MESSAGE));
+                            if (progress.getInt(StorageUtils.ExportBackupWorker.PROGRESS_MAX, -1) > -1)
+                                builder.setProgress(progress.getInt(StorageUtils.ExportBackupWorker.PROGRESS_MAX, 0),
+                                        progress.getInt(StorageUtils.ExportBackupWorker.PROGRESS_CURRRENT, 0),
+                                        false);
                             if (workInfo.getState().equals(WorkInfo.State.SUCCEEDED)) {
                                 int status = workInfo.getOutputData().getInt(StorageUtils.RESULT_CODE, 0);
                                 builder.setContentText("Export finished."

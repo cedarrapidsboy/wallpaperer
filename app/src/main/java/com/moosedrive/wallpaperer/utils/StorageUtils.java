@@ -1,9 +1,7 @@
 package com.moosedrive.wallpaperer.utils;
 
 import android.annotation.SuppressLint;
-import android.content.ContentResolver;
 import android.content.Context;
-import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -13,7 +11,6 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
-import android.webkit.MimeTypeMap;
 
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
@@ -33,7 +30,6 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -413,6 +409,7 @@ public class StorageUtils {
         return makeBackup(objs, "wallpaperer-" + dateString, 1, listener);
     }
 
+    @SuppressWarnings("unused")
     public static class ExportBackupWorker extends Worker{
         public static final String STATUS_MESSAGE = "status_message";
         public static final String PROGRESS_MAX = "progress_max";
@@ -424,7 +421,7 @@ public class StorageUtils {
         @NonNull
         @Override
         public Result doWork() {
-            int exportResult = 0;
+            int exportResult;
             try {
                 exportResult = StorageUtils.makeBackup(ImageStore.getInstance().getReferenceObjects(), this);
             } catch (IOException e) {
@@ -466,6 +463,8 @@ public class StorageUtils {
                 byte[] data = new byte[BUFFER_SIZE];
                 long size = 0;
                 int exportCount = 0;
+                int total = objStack.size();
+                long lastMillis = System.currentTimeMillis();
                 Collection<ImageObject> processedObjs = new ArrayList<>();
                 // Limit size of each ZIP volume to 1GiB
                 while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
@@ -483,6 +482,11 @@ public class StorageUtils {
                                 zos.write(data, 0, count);
                             }
                             exportCount++;
+                            long currentMillis = System.currentTimeMillis();
+                            if (currentMillis - lastMillis > 2000) {
+                                lastMillis = currentMillis;
+                                worker.setProgressAsync(new Data.Builder().putInt(ImportBackupWorker.PROGRESS_MAX, total).putInt(ImportBackupWorker.PROGRESS_CURRRENT, exportCount).build());
+                            }
                         }
                     }
                 }
@@ -504,8 +508,8 @@ public class StorageUtils {
         }
         return 0;
     }
+    @SuppressWarnings("unused")
     public static class ImportBackupWorker extends Worker {
-        public static final String BACKUP_SOURCES = "backup_sources";
         public static final String STATUS_MESSAGE = "status_message";
         public static final String PROGRESS_MAX = "progress_max";
         public static final String PROGRESS_CURRRENT = "progress_current";
@@ -524,7 +528,7 @@ public class StorageUtils {
                 for (Uri zipUri : uriSources.toArray(new Uri[0])){
                     try {
                         setProgressAsync(new Data.Builder().putString(STATUS_MESSAGE,"Importing images from archive " + i.get() + " of " + uriSources.size()).build());
-                        int importResult = StorageUtils.importBackup(getApplicationContext(), zipUri, ImageStore.getInstance(), i.get(), uriSources.size(), this);
+                        int importResult = StorageUtils.importBackup(getApplicationContext(), zipUri, ImageStore.getInstance(), this);
                         if (importResult != 0)
                             errorArchives.add(zipUri.getLastPathSegment());
                     } catch (IOException e) {
@@ -546,7 +550,7 @@ public class StorageUtils {
     }
     public static final int ERROR_INVALID_MANIFEST = 100;
     public static final int ERROR_IMAGES_NOT_FOUND = 200;
-    public static int importBackup(Context context, Uri backupZipUri, ImageStore store, int index, int count, ImportBackupWorker importBackupWorker) throws IOException {
+    public static int importBackup(Context context, Uri backupZipUri, ImageStore store, ImportBackupWorker importBackupWorker) throws IOException {
         LinkedList<ImageObject> objs = new LinkedList<>();
         //get manifest
         int size = 0;
@@ -628,95 +632,6 @@ public class StorageUtils {
             rndStr.append(charLibrary.charAt(index));
         }
         return rndStr.toString();
-    }
-    private static boolean isVirtualFile(Context context, Uri uri) {
-        if (!DocumentsContract.isDocumentUri(context, uri)) {
-            return false;
-        }
-        Cursor cursor = context.getContentResolver().query(
-                uri,
-                new String[]{DocumentsContract.Document.COLUMN_FLAGS},
-                null, null, null);
-        int flags = 0;
-        if (cursor.moveToFirst()) {
-            flags = cursor.getInt(0);
-        }
-        cursor.close();
-        return (flags & DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT) != 0;
-    }
-    private static InputStream getInputStreamForVirtualFile(Context context, Uri uri, String mimeTypeFilter)
-            throws IOException {
-
-        ContentResolver resolver = context.getContentResolver();
-        String[] openableMimeTypes = resolver.getStreamTypes(uri, mimeTypeFilter);
-        if (openableMimeTypes == null || openableMimeTypes.length < 1) {
-            throw new FileNotFoundException();
-        }
-        try (AssetFileDescriptor afd = resolver
-                .openTypedAssetFileDescriptor(uri, openableMimeTypes[0], null)) {
-            return afd.createInputStream();
-        }
-    }
-    private static String getMimeType(String url) {
-        String type = null;
-        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
-        if (extension != null) {
-            type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
-        }
-        return type;
-    }
-    public static boolean saveFile(Context context, String name, Uri sourceuri, String destinationDir, String destFileName) {
-
-        BufferedInputStream bis = null;
-        BufferedOutputStream bos = null;
-        InputStream input = null;
-        boolean hasError = false;
-
-        try {
-            if (isVirtualFile(context, sourceuri)) {
-                input = getInputStreamForVirtualFile(context, sourceuri, getMimeType(name));
-            } else {
-                input = context.getContentResolver().openInputStream(sourceuri);
-            }
-
-            boolean directorySetupResult;
-            File destDir = new File(destinationDir);
-            if (!destDir.exists()) {
-                directorySetupResult = destDir.mkdirs();
-            } else if (!destDir.isDirectory()) {
-                directorySetupResult = replaceFileWithDir(destinationDir);
-            } else {
-                directorySetupResult = true;
-            }
-
-            if (!directorySetupResult) {
-                hasError = true;
-            } else {
-                String destination = destinationDir + File.separator + destFileName;
-                int originalsize = input.available();
-
-                bis = new BufferedInputStream(input);
-                bos = new BufferedOutputStream(new FileOutputStream(destination));
-                byte[] buf = new byte[originalsize];
-                bis.read(buf);
-                do {
-                    bos.write(buf);
-                } while (bis.read(buf) != -1);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            hasError = true;
-        } finally {
-            try {
-                if (bos != null) {
-                    bos.flush();
-                    bos.close();
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        return !hasError;
     }
 
 }
