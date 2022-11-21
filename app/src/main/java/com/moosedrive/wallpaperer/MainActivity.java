@@ -27,6 +27,7 @@ import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -371,56 +372,100 @@ public class MainActivity extends AppCompatActivity
         return registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() == SettingsActivity.IMPORT_RESULT_CODE && result.getData() != null){
-
+                    if (result.getData() != null) {
                         // Create an explicit intent for an Activity in your app
                         Intent intent = new Intent(this, MainActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-
-                        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                                .setSmallIcon(R.drawable.vector_restore_24)
-                                .setContentTitle("Wallpaperer Import")
-                                .setContentText("Importing images...")
-                                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                                // Set the intent that will fire when the user taps the notification
-                                .setContentIntent(pendingIntent)
-                                .setOnlyAlertOnce(true)
-                                .setAutoCancel(true);
-
-                        Serializable serialUUID = result.getData().getSerializableExtra(SettingsActivity.IMPORT_UUID);
-                        if (serialUUID != null) {
-                            int notificationId = ThreadLocalRandom.current().nextInt(1000);
-                            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-                            WorkManager.getInstance(getApplicationContext())
-                                    .getWorkInfoByIdLiveData((UUID) serialUUID)
-                                    .observe(this, new Observer<WorkInfo>() {
-                                        @Override
-                                        public void onChanged(WorkInfo workInfo) {
-                                            if (workInfo != null) {
-                                                builder.setProgress(0,0,true);
-                                                Data progress = workInfo.getProgress();
-                                                if (progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE) != null)
-                                                    builder.setContentText(progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
-                                                if (progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, -1) > -1)
-                                                    builder.setProgress(progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, 0),
-                                                                    progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_CURRRENT, 0),
-                                                                    false);
-                                                if (workInfo.getState().equals(WorkInfo.State.SUCCEEDED))
-                                                    builder.setContentText("Import finished.")
-                                                            .setProgress(0,
-                                                                    0,
-                                                                    false);
-                                                else if (workInfo.getState().equals(WorkInfo.State.FAILED))
-                                                    builder.setProgress(0,0,false)
-                                                            .setContentText("Import failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
-                                                notificationManager.notify(notificationId, builder.build());
-                                            }
-                                        }
-                                    });
+                        if (result.getResultCode() == SettingsActivity.IMPORT_RESULT_CODE) {
+                            handleImportResult(result.getData(), pendingIntent);
+                        } else if (result.getResultCode() == SettingsActivity.EXPORT_RESULT_CODE){
+                            handleExportResult(result.getData(), pendingIntent);
                         }
                     }
                 });
+    }
+    private void handleExportResult(Intent result, PendingIntent pendingIntent) {
+
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.vector_export_24)
+                .setContentTitle("Wallpaperer Export")
+                .setContentText("Exporting images...")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                // Set the intent that will fire when the user taps the notification
+                .setContentIntent(pendingIntent)
+                .setOnlyAlertOnce(true)
+                .setAutoCancel(true);
+
+        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.EXPORT_UUID);
+        if (serialUUID != null) {
+            int notificationId = ThreadLocalRandom.current().nextInt(1000);
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            WorkManager.getInstance(getApplicationContext())
+                    .getWorkInfoByIdLiveData((UUID) serialUUID)
+                    .observe(this, workInfo -> {
+                        if (workInfo != null) {
+                            builder.setProgress(0,0,true);
+                            Data progress = workInfo.getProgress();
+                            if (progress.getString(StorageUtils.ExportBackupWorker.STATUS_MESSAGE) != null)
+                                builder.setContentText(progress.getString(StorageUtils.ExportBackupWorker.STATUS_MESSAGE));
+                            if (workInfo.getState().equals(WorkInfo.State.SUCCEEDED)) {
+                                int status = workInfo.getOutputData().getInt(StorageUtils.RESULT_CODE, 0);
+                                builder.setContentText("Export finished."
+                                        + ((status == StorageUtils.EXPORT_NO_IMAGES)?" No images to export.":""))
+                                        .setProgress(0,
+                                                0,
+                                                false);
+                            }
+                            else if (workInfo.getState().equals(WorkInfo.State.FAILED))
+                                builder.setProgress(0,0,false)
+                                        .setContentText("Export failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
+                            notificationManager.notify(notificationId, builder.build());
+                        }
+                    });
+        }
+    }
+
+    private void handleImportResult(Intent result, PendingIntent pendingIntent) {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.vector_restore_24)
+                .setContentTitle("Wallpaperer Import")
+                .setContentText("Importing images...")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                // Set the intent that will fire when the user taps the notification
+                .setContentIntent(pendingIntent)
+                .setOnlyAlertOnce(true)
+                .setAutoCancel(true);
+
+        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.IMPORT_UUID);
+        if (serialUUID != null) {
+            int notificationId = ThreadLocalRandom.current().nextInt(1000);
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            WorkManager.getInstance(getApplicationContext())
+                    .getWorkInfoByIdLiveData((UUID) serialUUID)
+                    .observe(this, workInfo -> {
+                        if (workInfo != null) {
+                            builder.setProgress(0,0,true);
+                            Data progress = workInfo.getProgress();
+                            if (progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE) != null)
+                                builder.setContentText(progress.getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
+                            if (progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, -1) > -1)
+                                builder.setProgress(progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_MAX, 0),
+                                                progress.getInt(StorageUtils.ImportBackupWorker.PROGRESS_CURRRENT, 0),
+                                                false);
+                            if (workInfo.getState().equals(WorkInfo.State.SUCCEEDED))
+                                builder.setContentText("Import finished.")
+                                        .setProgress(0,
+                                                0,
+                                                false);
+                            else if (workInfo.getState().equals(WorkInfo.State.FAILED))
+                                builder.setProgress(0,0,false)
+                                        .setContentText("Import failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
+                            notificationManager.notify(notificationId, builder.build());
+                        }
+                    });
+        }
     }
 
     @Override

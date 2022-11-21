@@ -407,12 +407,35 @@ public class StorageUtils {
      * @param objs images to add to this backup volume
      * @throws IOException Unknown IOException
      */
-    public static void makeBackup(Collection<ImageObject> objs, IExportListener listener) throws IOException {
+    public static int makeBackup(Collection<ImageObject> objs, Worker listener) throws IOException {
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
-        makeBackup(objs, "wallpaperer-" + dateString, 1, listener);
+        return makeBackup(objs, "wallpaperer-" + dateString, 1, listener);
     }
 
+    public static class ExportBackupWorker extends Worker{
+        public static final String STATUS_MESSAGE = "status_message";
+        public static final String PROGRESS_MAX = "progress_max";
+        public static final String PROGRESS_CURRRENT = "progress_current";
+        public ExportBackupWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
+            super(context, workerParams);
+        }
+
+        @NonNull
+        @Override
+        public Result doWork() {
+            int exportResult = 0;
+            try {
+                exportResult = StorageUtils.makeBackup(ImageStore.getInstance().getReferenceObjects(), this);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Export failed. Unable to create file.").build());
+            }
+            return Result.success(new Data.Builder().putInt(RESULT_CODE, exportResult).build());
+        }
+    }
+    public static final String RESULT_CODE = "result_code";
+    public static final int EXPORT_NO_IMAGES = 100;
     /**
      * Create one or more ZIP files in the Downloads storage location.
      * Each ZIP file will contain a set (1..n) of the image files referenced by objs and a manifest
@@ -424,8 +447,8 @@ public class StorageUtils {
      * @param volNum the number of the volume being created
      * @throws IOException Unknown IOException
      */
-    private static void makeBackup(Collection<ImageObject> objs, String id, int volNum, IExportListener listener) throws IOException {
-        listener.onExportStarted(objs.size(), "Exporting images to Downloads directory..." + ((volNum>1)?"\nVolume " + volNum:""));
+    private static int makeBackup(Collection<ImageObject> objs, String id, int volNum, Worker worker) throws IOException {
+        worker.setProgressAsync(new Data.Builder().putString(ExportBackupWorker.STATUS_MESSAGE, "Exporting images to Downloads directory..." + ((volNum>1)?"\nVolume " + volNum:"")).build());
         File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         Stack<ImageObject> objStack = new Stack<>();
         objStack.addAll(objs);
@@ -447,7 +470,6 @@ public class StorageUtils {
                 // Limit size of each ZIP volume to 1GiB
                 while (!objStack.isEmpty() && size < Math.floor(Math.pow(2, 30))) {
                     {
-                        listener.onExportIncrement(1);
                         ImageObject obj = objStack.pop();
                         processedObjs.add(obj);
                         try (FileInputStream is = new FileInputStream(obj.getUri().getPath());
@@ -461,9 +483,6 @@ public class StorageUtils {
                                 zos.write(data, 0, count);
                             }
                             exportCount++;
-                        } catch (IOException fnfe) {
-                            listener.onExportFinished(IExportListener.ERROR, "Error writing export archive.");
-                            fnfe.printStackTrace();
                         }
                     }
                 }
@@ -471,14 +490,19 @@ public class StorageUtils {
                 JSONArray jsonArray = ImageStore.imageObjectsToJson(processedObjs);
                 zos.putNextEntry(new ZipEntry("manifest.json"));
                 zos.write(jsonArray.toString().getBytes(StandardCharsets.UTF_8));
-                listener.onExportFinished(IExportListener.SUCCESS, "Exported " + exportCount + " images.");
+                worker.setProgressAsync(new Data.Builder()
+                        .putString(ExportBackupWorker.STATUS_MESSAGE,
+                                "Exported " + exportCount + " images.")
+                        .build());
+
                 //If we stil have work to do then start the next volume
                 if (!objStack.isEmpty())
-                    makeBackup(objStack, id, volNum + 1, listener);
+                    makeBackup(objStack, id, volNum + 1, worker);
             }
         } else {
-            listener.onExportFinished(IExportListener.SUCCESS, "No images to export.");
+            return EXPORT_NO_IMAGES;
         }
+        return 0;
     }
     public static class ImportBackupWorker extends Worker {
         public static final String BACKUP_SOURCES = "backup_sources";

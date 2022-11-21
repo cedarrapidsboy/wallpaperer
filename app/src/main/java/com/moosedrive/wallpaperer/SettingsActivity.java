@@ -45,7 +45,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SettingsActivity extends AppCompatActivity {
 
     public static final int IMPORT_RESULT_CODE = 5;
+    public static final int EXPORT_RESULT_CODE = 6;
     public static final String IMPORT_UUID = "import_uuid";
+    public static final String EXPORT_UUID = "export_uuid";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,12 +108,16 @@ public class SettingsActivity extends AppCompatActivity {
             if (button != null){
                 button.setOnPreferenceClickListener(preference -> {
                     BackgroundExecutor.getExecutor().execute(() -> {
-                        try {
-                            StorageUtils.makeBackup(ImageStore.getInstance().getReferenceObjects(), this);
-                        } catch (IOException e) {
-                            onExportFinished(IExportListener.ERROR, "Error exporting images: " + e.getMessage());
-                            e.printStackTrace();
-                        }
+                           WorkRequest exportWork = new OneTimeWorkRequest.Builder(StorageUtils.ExportBackupWorker.class)
+                                    .setInputData(
+                                            new Data.Builder().build()
+                                    ).build();
+                            UUID exportId = exportWork.getId();
+                            WorkManager.getInstance(requireContext()).enqueue(exportWork);
+                            Intent importIntent = new Intent();
+                            importIntent.putExtra(EXPORT_UUID, exportId);
+                            requireActivity().setResult(EXPORT_RESULT_CODE, importIntent);
+                            requireActivity().finish();
                     });
                     return true;
                 });
@@ -151,6 +157,8 @@ public class SettingsActivity extends AppCompatActivity {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.setType("application/zip");
             intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             importChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_imports)));
         }
@@ -168,13 +176,16 @@ public class SettingsActivity extends AppCompatActivity {
                             Intent data = result.getData();
                             StorageUtils.CleanUpOrphans(requireContext().getFilesDir().getAbsolutePath());
                             if (data != null) {
+                                final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
                                 if (data.getData() != null) {
                                     //Single select
+                                    requireContext().getContentResolver().takePersistableUriPermission(data.getData(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
                                     ImportData.getInstance().importSources.add(data.getData());
                                 } else if (data.getClipData() != null) {
                                     for (int i = 0; i < data.getClipData().getItemCount(); i++) {
                                         Uri uri = data.getClipData().getItemAt(i).getUri();
                                         try {
+                                            requireContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                                             ImportData.getInstance().importSources.add(uri);
                                         }
                                         catch (SecurityException e){
