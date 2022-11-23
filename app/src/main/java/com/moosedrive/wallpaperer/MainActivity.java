@@ -763,8 +763,13 @@ public class MainActivity extends AppCompatActivity
                 WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
             }
         } else if (key.equals(getString(R.string.last_wallpaper))) {
-            store.setActiveWallpaper(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
-            invalidateOptionsMenu();
+            String id = sharedPreferences.getString(getString(R.string.last_wallpaper), "");
+            //Catch any code that is changing the last wallpaper preference
+            // without updating the store.
+            if (!id.equals(store.getActiveWallpaperId())) {
+                store.setActiveWallpaper(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
+                invalidateOptionsMenu();
+            }
         }
     }
 

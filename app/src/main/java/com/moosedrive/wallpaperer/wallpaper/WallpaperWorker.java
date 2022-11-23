@@ -146,14 +146,15 @@ public class WallpaperWorker extends Worker {
 
         try {
             Uri imgUri;
+            store.updateFromPrefs(context);
             if (imgObject == null) {
                 int pos = store.getActiveWallpaperPos();
-                if (store.getActiveWallpaperId().equals("")) {
+                //if (store.getActiveWallpaperId().equals("")) {
                     //Image wasn't found at its expected position.
                     //Back-up the pointer so whatever slid into place
                     //will be the next paper
-                    pos--;
-                }
+                //    pos--;
+                //}
                 pos++;
                 if (pos >= store.size() || pos < 0) {
                     pos = 0;
@@ -174,7 +175,7 @@ public class WallpaperWorker extends Worker {
                             SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
                             long now = new Date().getTime();
                             prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
-                            prefEdit.putString(context.getString(R.string.last_wallpaper), imgObject.getId());
+                            store.setActiveWallpaper(imgObject.getId());
                             prefEdit.apply();
                         } catch (IOException e) {
                             e.printStackTrace();
