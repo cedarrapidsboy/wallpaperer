@@ -59,7 +59,7 @@ public class WallpaperWorker extends Worker {
         if (imgId != null) {
             imgObject = store.getImageObject(imgId);
             if (imgObject != null)
-                store.setActiveWallpaper(imgObject.getId());
+                store.setActive(imgObject.getId());
         } else {
             imgObject = null;
         }
@@ -148,7 +148,7 @@ public class WallpaperWorker extends Worker {
             Uri imgUri;
             store.updateFromPrefs(getApplicationContext());
             if (imgObject == null)
-                imgObject = store.nextWallpaper();
+                imgObject = store.activateNext();
             if (imgObject != null) {
                 imgUri = imgObject.getUri();
                 try (ParcelFileDescriptor pfd = getApplicationContext().

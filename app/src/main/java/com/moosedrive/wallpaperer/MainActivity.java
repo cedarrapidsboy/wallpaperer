@@ -301,7 +301,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(R.id.menu_goto).setVisible(!store.getActiveWallpaperId().equals(""));
+        menu.findItem(R.id.menu_goto).setVisible(!store.getActiveId().equals(""));
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -535,10 +535,10 @@ public class MainActivity extends AppCompatActivity
                                     })
                                     .setPositiveButton(R.string.dialog_button_shuffle_yes, (dialog, which) -> {
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
-                                        store.shuffleImages();
+                                        store.shuffle();
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getActivePos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
                             break;
@@ -556,7 +556,7 @@ public class MainActivity extends AppCompatActivity
                                         store.setSortCriteria(ImageStore.SORT_BY_CUSTOM);
                                         enableSwipeToDeleteAndUndo();
                                         dialog.dismiss();
-                                        runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
+                                        runOnUiThread(() -> rv.scrollToPosition(store.getActivePos()));
                                         setResult(Activity.RESULT_OK);
                                     }).show();
                             break;
@@ -568,7 +568,7 @@ public class MainActivity extends AppCompatActivity
                 popupMenu.show();
                 return true;
             case (R.id.menu_goto):
-                runOnUiThread(() -> rv.scrollToPosition(store.getActiveWallpaperPos()));
+                runOnUiThread(() -> rv.scrollToPosition(store.getActivePos()));
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -660,7 +660,7 @@ public class MainActivity extends AppCompatActivity
                 final ImageObject item = adapter.getData().get(position);
                 final int refPos = store.getReferencePosition(item.getId());
                 boolean toggled = false;
-                boolean wasActiveWallpaper = store.getActiveWallpaperId().equals(item.getId());
+                boolean wasActiveWallpaper = store.getActiveId().equals(item.getId());
                 store.delImageObject(item.getId());
                 //adapter.removeItem(position);
                 if (store.size() == 0) {
@@ -675,7 +675,7 @@ public class MainActivity extends AppCompatActivity
 
                     store.addImageObject(item, refPos);
                     if (wasActiveWallpaper) {
-                        store.setActiveWallpaper(item.getId());
+                        store.setActive(item.getId());
                     }
                     //adapter.notifyItemInserted(position);
                     if (fToggled)
@@ -766,8 +766,8 @@ public class MainActivity extends AppCompatActivity
             String id = sharedPreferences.getString(getString(R.string.last_wallpaper), "");
             //Catch any code that is changing the last wallpaper preference
             // without updating the store.
-            if (!id.equals(store.getActiveWallpaperId())) {
-                store.setActiveWallpaper(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
+            if (!id.equals(store.getActiveId())) {
+                store.setActive(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
                 invalidateOptionsMenu();
             }
         }

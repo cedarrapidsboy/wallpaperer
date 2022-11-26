@@ -167,7 +167,7 @@ public class ImageStore {
      *
      * @return the last wallpaper id
      */
-    public synchronized String getActiveWallpaperId() {
+    public synchronized String getActiveId() {
         return lastWallpaperId;
     }
 
@@ -176,19 +176,19 @@ public class ImageStore {
      *
      * @return the last wallpaper pos or -1
      */
-    public synchronized int getActiveWallpaperPos() {
+    public synchronized int getActivePos() {
         return getPosition(lastWallpaperId);
     }
 
     /**
      * Finds the next valid image object in the active view.
      * Advances the active ImageObject to the next image.
-     * Returns the ImageObject setActiveWallpaper), or null if there is no other
+     * Returns the ImageObject, or null if there is no other
      * valid ImageObject and clears the active object.
      * @return the next image after the active one, or null
      */
-    public synchronized ImageObject nextWallpaper(){
-        int startPos = getActiveWallpaperPos();
+    public synchronized ImageObject activateNext(){
+        int startPos = getActivePos();
         if (startPos < 0)
             startPos = 0;
         int nextPos = (startPos < getImageObjectArray().length - 1) ? startPos+1 : 0;
@@ -200,20 +200,20 @@ public class ImageStore {
             else
                 nextPos = 0;
         }
-        setActiveWallpaper((nextImageObject != null)?nextImageObject.getId():"");
+        setActive((nextImageObject != null)?nextImageObject.getId():"");
         saveToPrefs();
         return nextImageObject;
     }
 
     /**
-     * Sets last wallpaper id.
+     * Sets the active ImageObject by id.
      *
-     * @param lastWallpaperId the last wallpaper id
+     * @param id and ImageObject id
      */
-    public synchronized void setActiveWallpaper(String lastWallpaperId) {
-        if (!this.lastWallpaperId.equals(lastWallpaperId)) {
+    public synchronized void setActive(String id) {
+        if (!this.lastWallpaperId.equals(id)) {
             String prevId = this.lastWallpaperId;
-            this.lastWallpaperId = lastWallpaperId;
+            this.lastWallpaperId = id;
             saveToPrefs();
             listeners
                     .stream()
@@ -225,7 +225,7 @@ public class ImageStore {
     /**
      * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
      */
-    public synchronized void shuffleImages() {
+    public synchronized void shuffle() {
         Collections.shuffle(orderedImages);
         if (!lastWallpaperId.isEmpty()) {
             ImageObject swapImage = referenceImages.get(lastWallpaperId);
@@ -268,7 +268,7 @@ public class ImageStore {
             e.printStackTrace();
         }
         replace(loadedImgs);
-        setActiveWallpaper(prefs.getString(context.getString(R.string.last_wallpaper), ""));
+        setActive(prefs.getString(context.getString(R.string.last_wallpaper), ""));
         setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
 
@@ -323,8 +323,8 @@ public class ImageStore {
             referenceImages.remove(id);
             orderedImages.remove(deadImgWalking);
             sortedImages.forEach(imgArray -> imgArray.remove(deadImgWalking));
-            if (getActiveWallpaperId().equals(deadImgWalking.getId())) {
-                setActiveWallpaper("");
+            if (getActiveId().equals(deadImgWalking.getId())) {
+                setActive("");
             }
             saveToPrefs();
             listeners
@@ -439,7 +439,7 @@ public class ImageStore {
         referenceImages.clear();
         orderedImages.clear();
         if (!listsOnly)
-            setActiveWallpaper("");
+            setActive("");
         sortedImages.forEach(TreeSet::clear);
         saveToPrefs();
         listeners
@@ -490,7 +490,7 @@ public class ImageStore {
     public synchronized void moveImageObject(ImageObject object, int newPos) {
         if (referenceImages.containsKey(object.getId())) {
             int prevPos = getPosition(object.getId());
-            boolean wasActive = getActiveWallpaperId().equals(object.getId());
+            boolean wasActive = getActiveId().equals(object.getId());
             delImageObject(object.getId());
             if (wasActive)
                 lastWallpaperId = object.getId();

@@ -95,7 +95,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
             color = context.getColor(androidx.cardview.R.color.cardview_dark_background);
             BackgroundExecutor.getExecutor().execute(() -> img.setColor(img.getColorFromBitmap(context)));
         }
-        if (store.getActiveWallpaperId().equals(img.getId()))
+        if (store.getActiveId().equals(img.getId()))
             holder.cv.setStrokeColor(context.getColor(R.color.gray_400));
         else
             holder.cv.setStrokeColor(context.getColor(R.color.transparent));
