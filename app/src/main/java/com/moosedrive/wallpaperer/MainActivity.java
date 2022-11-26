@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity
         createNotificationChannel();
         super.onCreate(savedInstanceState);
         context = this;
-        store = ImageStore.getInstance();
+        store = ImageStore.getInstance(getApplicationContext());
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -162,7 +162,7 @@ public class MainActivity extends AppCompatActivity
                     if (result.getResultCode() == Activity.RESULT_OK) {
                         // There are no request codes
                         Intent data = result.getData();
-                        StorageUtils.CleanUpOrphans(getFilesDir().getAbsolutePath());
+                        StorageUtils.CleanUpOrphans(getApplicationContext(), getFilesDir().getAbsolutePath());
                         if (data != null) {
                             if (data.getData() != null) {
                                 //Single select
@@ -175,7 +175,7 @@ public class MainActivity extends AppCompatActivity
                                 }
                             }
                             WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance());
+                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance(getApplicationContext()));
                         }
                     }
                 });
@@ -286,7 +286,7 @@ public class MainActivity extends AppCompatActivity
                 //Refresh the whole list
                 runOnUiThread(() -> adapter.notifyDataSetChanged());
                 //Save after refresh -- otherwise data will be saved onPause()
-                store.saveToPrefs(context);
+                store.saveToPrefs();
                 swipeLayout.setRefreshing(false);
             });
         });
@@ -331,7 +331,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onPause() {
-        store.saveToPrefs(this);
+        store.saveToPrefs();
         inForeground = false;
         super.onPause();
     }
@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity
             itemMoveHelper.attachToRecyclerView(null);
         if (itemSwipeHelper != null)
             itemSwipeHelper.attachToRecyclerView(null);
-        store.saveToPrefs(context);
+        store.saveToPrefs();
         super.onDestroy();
     }
 
@@ -596,7 +596,7 @@ public class MainActivity extends AppCompatActivity
                         dialog.dismiss();
                         store.clear(false);
                         toggler.setChecked(false);
-                        StorageUtils.CleanUpOrphans(getBaseContext().getFilesDir().getPath());
+                        StorageUtils.CleanUpOrphans(getApplicationContext(), getBaseContext().getFilesDir().getPath());
                         //adapter.notifyDataSetChanged();
                     })
                     .show();
@@ -842,7 +842,7 @@ public class MainActivity extends AppCompatActivity
         if (loadingDialog != null)
             runOnUiThread(() -> loadingDialog.dismiss());
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
-        store.saveToPrefs(context);
+        store.saveToPrefs();
         invalidateOptionsMenu();
         if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)

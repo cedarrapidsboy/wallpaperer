@@ -174,7 +174,7 @@ public class SettingsActivity extends AppCompatActivity {
                         if (result.getResultCode() == Activity.RESULT_OK) {
                             // There are no request codes
                             Intent data = result.getData();
-                            StorageUtils.CleanUpOrphans(requireContext().getFilesDir().getAbsolutePath());
+                            StorageUtils.CleanUpOrphans(requireContext().getApplicationContext(), requireContext().getFilesDir().getAbsolutePath());
                             if (data != null) {
                                 final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
                                 if (data.getData() != null) {
@@ -238,7 +238,7 @@ public class SettingsActivity extends AppCompatActivity {
             if (importDialog != null)
                 requireActivity().runOnUiThread(() -> importDialog.dismiss());
             WallpaperManager.getInstance().removeWallpaperAddedListener(this);
-            ImageStore.getInstance().saveToPrefs(requireContext());
+            ImageStore.getInstance(requireContext().getApplicationContext()).saveToPrefs();
             if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
                 new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(requireContext())
                         .setTitle("Error(s) loading images")

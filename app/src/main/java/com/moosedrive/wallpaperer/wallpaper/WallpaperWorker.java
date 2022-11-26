@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class WallpaperWorker extends Worker {
 
-    private final Context context;
     private final ImageStore store;
     private ImageObject imgObject;
 
@@ -53,13 +52,14 @@ public class WallpaperWorker extends Worker {
      */
     public WallpaperWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
-        this.context = context;
         String imgId = workerParams.getInputData().getString("id");
-        store = ImageStore.getInstance();
+        store = ImageStore.getInstance(getApplicationContext());
         if (store.size() == 0)
-            store.updateFromPrefs(context);
+            store.updateFromPrefs(getApplicationContext());
         if (imgId != null) {
             imgObject = store.getImageObject(imgId);
+            if (imgObject != null)
+                store.setActiveWallpaper(imgObject.getId());
         } else {
             imgObject = null;
         }
@@ -112,8 +112,8 @@ public class WallpaperWorker extends Worker {
             requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         if (!runNow) {
             requestBuilder.setInitialDelay(PreferenceHelper.getWallpaperDelay(mContext), TimeUnit.MILLISECONDS)
-                    .addTag(context.getString(R.string.work_random_wallpaper_id));
-            WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
+                    .addTag(mContext.getString(R.string.work_random_wallpaper_id));
+            WorkManager.getInstance(mContext).cancelAllWorkByTag(mContext.getString(R.string.work_random_wallpaper_id));
         }
         OneTimeWorkRequest saveRequest = requestBuilder.build();
         WorkManager.getInstance(mContext)
@@ -134,7 +134,7 @@ public class WallpaperWorker extends Worker {
         int compatHeight;
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            WindowMetrics metrics = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getCurrentWindowMetrics();
+            WindowMetrics metrics = ((WindowManager) getApplicationContext().getSystemService(Context.WINDOW_SERVICE)).getCurrentWindowMetrics();
             compatWidth = metrics.getBounds().width();
             compatHeight = metrics.getBounds().height();
         } else {
@@ -146,37 +146,20 @@ public class WallpaperWorker extends Worker {
 
         try {
             Uri imgUri;
-            store.updateFromPrefs(context);
-            if (imgObject == null) {
-                int pos = store.getActiveWallpaperPos();
-                //if (store.getActiveWallpaperId().equals("")) {
-                    //Image wasn't found at its expected position.
-                    //Back-up the pointer so whatever slid into place
-                    //will be the next paper
-                //    pos--;
-                //}
-                pos++;
-                if (pos >= store.size() || pos < 0) {
-                    pos = 0;
-                }
-                imgObject = store.getImageObject(pos);
-            }
+            store.updateFromPrefs(getApplicationContext());
+            if (imgObject == null)
+                imgObject = store.nextWallpaper();
             if (imgObject != null) {
                 imgUri = imgObject.getUri();
-                try (ParcelFileDescriptor pfd = context.
+                try (ParcelFileDescriptor pfd = getApplicationContext().
                         getContentResolver().
                         openFileDescriptor(imgUri, "r")) {
                     final Bitmap bitmapSource = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
                     new Thread(() -> {
                         try {
-                            boolean crop = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preference_image_crop), true);
+                            boolean crop = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean(getApplicationContext().getString(R.string.preference_image_crop), true);
                             Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
-                            WallpaperManager.getInstance(context).setBitmap(bitmap);
-                            SharedPreferences.Editor prefEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
-                            long now = new Date().getTime();
-                            prefEdit.putLong(context.getString(R.string.preference_worker_last_change), now);
-                            store.setActiveWallpaper(imgObject.getId());
-                            prefEdit.apply();
+                            WallpaperManager.getInstance(getApplicationContext()).setBitmap(bitmap);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -185,15 +168,15 @@ public class WallpaperWorker extends Worker {
                     store.delImageObject(imgObject.getId());
                     e.printStackTrace();
                 } finally {
-                    store.saveToPrefs(context);
+                    store.saveToPrefs();
                 }
             }
         } catch (CancellationException e) {
             //do nothing
         }
         // schedule the next wallpaper change
-        if (PreferenceHelper.isActive(context)) {
-            scheduleRandomWallpaper(context, false, null);
+        if (PreferenceHelper.isActive(getApplicationContext())) {
+            scheduleRandomWallpaper(getApplicationContext(), false, null);
         }
         return Result.success();
     }

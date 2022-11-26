@@ -22,7 +22,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        store = ImageStore.getInstance();
+        store = ImageStore.getInstance(getApplicationContext());
         store.updateFromPrefs(getApplicationContext());
         setContentView(R.layout.activity_incoming_intent);
         processIncomingIntentsAndExit();
@@ -57,7 +57,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
                         .setPositiveButton(getString(R.string.dialog_button_yes_add_intent), (dialog, which) -> {
                             dialog.dismiss();
                             WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                            WallpaperManager.getInstance().addWallpapers(this, setUris, ImageStore.getInstance());
+                            WallpaperManager.getInstance().addWallpapers(this, setUris, ImageStore.getInstance(getApplicationContext()));
                             setResult(Activity.RESULT_OK);
                         }).show();
             } else {
@@ -87,7 +87,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
                 loadingDialog.dismiss();
         });
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
-        store.saveToPrefs(this);
+        store.saveToPrefs();
         if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")

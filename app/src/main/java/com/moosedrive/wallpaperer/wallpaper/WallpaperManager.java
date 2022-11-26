@@ -78,7 +78,7 @@ public class WallpaperManager {
      * @param imgObjectId the img object id
      */
     public void setSingleWallpaper(Context context, String imgObjectId) {
-        ImageStore store = ImageStore.getInstance();
+        ImageStore store = ImageStore.getInstance(context.getApplicationContext());
         if (store.size() == 0) {
             wallpaperSetListeners.forEach(WallpaperSetListener::onWallpaperSetEmpty);
         } else {

@@ -57,14 +57,15 @@ public class ImageStore {
      */
     public static final int SORT_DEFAULT = SORT_BY_CUSTOM;
     private static ImageStore store = null;
-
-    private int sortCriteria = SORT_BY_CUSTOM;
     private final HashMap<String, ImageObject> referenceImages;
     private final List<ImageObject> orderedImages;
     private final List<TreeSet<ImageObject>> sortedImages;
+    private final Set<ImageStoreListener> listeners = new HashSet<>();
+    private int sortCriteria = SORT_BY_CUSTOM;
     private String lastWallpaperId = "";
-
-    private ImageStore() {
+    private final Context context;
+    private ImageStore(Context context) {
+        this.context = context.getApplicationContext();
         // The entire image repository
         referenceImages = new LinkedHashMap<>();
         // The user-ordered list of images
@@ -93,76 +94,11 @@ public class ImageStore {
      *
      * @return the instance
      */
-    public static synchronized ImageStore getInstance() {
+    public static synchronized ImageStore getInstance(Context context) {
         if (store == null) {
-            store = new ImageStore();
+            store = new ImageStore(context);
         }
         return store;
-    }
-
-    /**
-     * Gets last wallpaper id.
-     *
-     * @return the last wallpaper id
-     */
-    public synchronized String getActiveWallpaperId() {
-        return lastWallpaperId;
-    }
-
-    /**
-     * Gets last wallpaper pos.
-     *
-     * @return the last wallpaper pos
-     */
-    public synchronized int getActiveWallpaperPos() {
-        return getPosition(lastWallpaperId);
-    }
-
-    /**
-     * Sets last wallpaper id.
-     *
-     * @param lastWallpaperId the last wallpaper id
-     */
-    public synchronized void setActiveWallpaper(String lastWallpaperId) {
-        if (!this.lastWallpaperId.equals(lastWallpaperId)) {
-            String prevId = this.lastWallpaperId;
-            this.lastWallpaperId = lastWallpaperId;
-            listeners
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .forEach(listener -> listener.onSetActive(getImageObject(this.lastWallpaperId), getImageObject(prevId)));
-        }
-    }
-
-    /**
-     * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
-     */
-    public synchronized void shuffleImages() {
-        Collections.shuffle(orderedImages);
-        if (!lastWallpaperId.isEmpty()) {
-            ImageObject swapImage = referenceImages.get(lastWallpaperId);
-            orderedImages.remove(swapImage);
-            orderedImages.add(0, swapImage);
-        }
-        listeners
-                .stream()
-                .filter(Objects::nonNull)
-                .forEach(ImageStoreListener::onShuffle);
-    }
-
-    /**
-     * Save to prefs.
-     *
-     * @param context the context
-     */
-    public synchronized void saveToPrefs(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        SharedPreferences.Editor edit = prefs.edit();
-        JSONArray imageArray = imageObjectsToJson(orderedImages);
-        edit.putString("sources", imageArray.toString());
-        edit.putInt("sort", getSortCriteria());
-        edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
-        edit.apply();
     }
 
     @NonNull
@@ -185,25 +121,6 @@ public class ImageStore {
             }
         });
         return imageArray;
-    }
-
-    /**
-     * Load from prefs image store. This will clear the current ImageStore.
-     *
-     * @param context the context
-     */
-    public synchronized void updateFromPrefs(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
-        try {
-            JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-            loadedImgs = parseJsonArray(context, imageArray, false);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        replace(loadedImgs);
-        setActiveWallpaper(prefs.getString(context.getString(R.string.last_wallpaper), ""));
-        setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
 
     public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray, boolean ignoreUri) throws JSONException {
@@ -246,6 +163,116 @@ public class ImageStore {
     }
 
     /**
+     * Gets last wallpaper id.
+     *
+     * @return the last wallpaper id
+     */
+    public synchronized String getActiveWallpaperId() {
+        return lastWallpaperId;
+    }
+
+    /**
+     * Gets active wallpaper position.
+     *
+     * @return the last wallpaper pos or -1
+     */
+    public synchronized int getActiveWallpaperPos() {
+        return getPosition(lastWallpaperId);
+    }
+
+    /**
+     * Finds the next valid image object in the active view.
+     * Advances the active ImageObject to the next image.
+     * Returns the ImageObject setActiveWallpaper), or null if there is no other
+     * valid ImageObject and clears the active object.
+     * @return the next image after the active one, or null
+     */
+    public synchronized ImageObject nextWallpaper(){
+        int startPos = getActiveWallpaperPos();
+        if (startPos < 0)
+            startPos = 0;
+        int nextPos = (startPos < getImageObjectArray().length - 1) ? startPos+1 : 0;
+        ImageObject nextImageObject = null;
+        while (nextImageObject == null && nextPos != startPos){
+            nextImageObject = getImageObject(nextPos);
+            if (nextPos < getImageObjectArray().length -1)
+                nextPos++;
+            else
+                nextPos = 0;
+        }
+        setActiveWallpaper((nextImageObject != null)?nextImageObject.getId():"");
+        saveToPrefs();
+        return nextImageObject;
+    }
+
+    /**
+     * Sets last wallpaper id.
+     *
+     * @param lastWallpaperId the last wallpaper id
+     */
+    public synchronized void setActiveWallpaper(String lastWallpaperId) {
+        if (!this.lastWallpaperId.equals(lastWallpaperId)) {
+            String prevId = this.lastWallpaperId;
+            this.lastWallpaperId = lastWallpaperId;
+            saveToPrefs();
+            listeners
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .forEach(listener -> listener.onSetActive(getImageObject(this.lastWallpaperId), getImageObject(prevId)));
+        }
+    }
+
+    /**
+     * Shuffle the CUSTOM list. Current active wallpaper will be moved to position 0.
+     */
+    public synchronized void shuffleImages() {
+        Collections.shuffle(orderedImages);
+        if (!lastWallpaperId.isEmpty()) {
+            ImageObject swapImage = referenceImages.get(lastWallpaperId);
+            orderedImages.remove(swapImage);
+            orderedImages.add(0, swapImage);
+        }
+        saveToPrefs();
+        listeners
+                .stream()
+                .filter(Objects::nonNull)
+                .forEach(ImageStoreListener::onShuffle);
+    }
+
+    /**
+     * Save to prefs.
+     *
+     */
+    public synchronized void saveToPrefs() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        JSONArray imageArray = imageObjectsToJson(orderedImages);
+        edit.putString("sources", imageArray.toString());
+        edit.putInt("sort", getSortCriteria());
+        edit.putString(context.getString(R.string.last_wallpaper), lastWallpaperId);
+        edit.apply();
+    }
+
+    /**
+     * Load from prefs image store. This will clear the current ImageStore.
+     *
+     * @param context the context
+     */
+    public synchronized void updateFromPrefs(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
+        try {
+            JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
+            loadedImgs = parseJsonArray(context, imageArray, false);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        replace(loadedImgs);
+        setActiveWallpaper(prefs.getString(context.getString(R.string.last_wallpaper), ""));
+        setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
+    }
+
+    /**
      * Add image object to the end of the map.
      *
      * @param img the img
@@ -262,6 +289,7 @@ public class ImageStore {
     public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
         addImageObject(imgTry, refPosition, true);
     }
+
     /**
      * Add image object.
      *  @param imgTry      the img
@@ -275,6 +303,7 @@ public class ImageStore {
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
             sortedImages.forEach(imgarray -> imgarray.add(imgTry));
+            saveToPrefs();
             if (updateView)
                 listeners.stream()
                     .filter(Objects::nonNull)
@@ -297,6 +326,7 @@ public class ImageStore {
             if (getActiveWallpaperId().equals(deadImgWalking.getId())) {
                 setActiveWallpaper("");
             }
+            saveToPrefs();
             listeners
                     .stream()
                     .filter(Objects::nonNull)
@@ -332,7 +362,7 @@ public class ImageStore {
      * Gets image object.
      *
      * @param i the
-     * @return the image object
+     * @return the image object or null if not found
      */
     public synchronized ImageObject getImageObject(int i) {
         if (i < 0 || i >= referenceImages.size())
@@ -363,6 +393,7 @@ public class ImageStore {
 
     public synchronized void add(Collection<ImageObject> col){
         col.forEach(img -> addImageObject(img, -1, false));
+        saveToPrefs();
         listeners.stream()
                 .filter(Objects::nonNull)
                 .forEach(ImageStoreListener::onReplace);
@@ -376,8 +407,8 @@ public class ImageStore {
     public synchronized void replace(Collection<ImageObject> col) {
         store.clear(true);
         col.forEach(this::addImageObject);
+        saveToPrefs();
     }
-
 
     /**
      * Gets position.
@@ -410,6 +441,7 @@ public class ImageStore {
         if (!listsOnly)
             setActiveWallpaper("");
         sortedImages.forEach(TreeSet::clear);
+        saveToPrefs();
         listeners
                 .stream()
                 .filter(Objects::nonNull)
@@ -424,10 +456,6 @@ public class ImageStore {
     public synchronized int size() {
         return referenceImages.size();
     }
-
-
-    private final Set<ImageStoreListener> listeners = new HashSet<>();
-
 
     /**
      * Gets sort criteria.
@@ -446,6 +474,7 @@ public class ImageStore {
     public synchronized void setSortCriteria(int sortCriteria) {
         int prevSortCriteria = this.sortCriteria;
         this.sortCriteria = sortCriteria;
+        saveToPrefs();
         listeners
                 .stream()
                 .filter(Objects::nonNull)
@@ -466,6 +495,7 @@ public class ImageStore {
             if (wasActive)
                 lastWallpaperId = object.getId();
             addImageObject(object, newPos);
+            saveToPrefs();
             listeners.stream()
                     .filter(Objects::nonNull)
                     .forEach(listener -> listener.onMove(prevPos, newPos));

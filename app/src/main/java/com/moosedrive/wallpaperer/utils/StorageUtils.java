@@ -318,9 +318,9 @@ public class StorageUtils {
         }
     }
 
-    public static void CleanUpOrphans(String destinationDir) {
+    public static void CleanUpOrphans(Context context, String destinationDir) {
         File destDir = new File(destinationDir);
-        ImageStore is = ImageStore.getInstance();
+        ImageStore is = ImageStore.getInstance(context);
         File[] ls = destDir.listFiles();
         if (ls != null) {
             for (File f : ls) {
@@ -423,7 +423,7 @@ public class StorageUtils {
         public Result doWork() {
             int exportResult;
             try {
-                exportResult = StorageUtils.makeBackup(ImageStore.getInstance().getReferenceObjects(), this);
+                exportResult = StorageUtils.makeBackup(ImageStore.getInstance(getApplicationContext()).getReferenceObjects(), this);
             } catch (IOException e) {
                 e.printStackTrace();
                 return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Export failed. Unable to create file.").build());
@@ -528,7 +528,7 @@ public class StorageUtils {
                 for (Uri zipUri : uriSources.toArray(new Uri[0])){
                     try {
                         setProgressAsync(new Data.Builder().putString(STATUS_MESSAGE,"Importing images from archive " + i.get() + " of " + uriSources.size()).build());
-                        int importResult = StorageUtils.importBackup(getApplicationContext(), zipUri, ImageStore.getInstance(), this);
+                        int importResult = StorageUtils.importBackup(getApplicationContext(), zipUri, ImageStore.getInstance(getApplicationContext()), this);
                         if (importResult != 0)
                             errorArchives.add(zipUri.getLastPathSegment());
                     } catch (IOException e) {
