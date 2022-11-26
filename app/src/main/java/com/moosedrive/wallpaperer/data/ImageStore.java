@@ -188,20 +188,18 @@ public class ImageStore {
      * @return the next image after the active one, or null
      */
     public synchronized ImageObject activateNext(){
-        int startPos = getActivePos();
-        if (startPos < 0)
-            startPos = 0;
-        int nextPos = (startPos < getImageObjectArray().length - 1) ? startPos+1 : 0;
         ImageObject nextImageObject = null;
-        while (nextImageObject == null && nextPos != startPos){
-            nextImageObject = getImageObject(nextPos);
-            if (nextPos < getImageObjectArray().length -1)
-                nextPos++;
+        int listLength = getImageObjectArray().length;
+        if (listLength == 1)
+            nextImageObject = getImageObject(0);
+        else if (listLength > 1) {
+            int startPos = getActivePos();
+            if (startPos == -1 || startPos == listLength - 1)
+                nextImageObject = getImageObject(0);
             else
-                nextPos = 0;
+                nextImageObject = getImageObject(startPos + 1);
         }
         setActive((nextImageObject != null)?nextImageObject.getId():"");
-        saveToPrefs();
         return nextImageObject;
     }
 
@@ -214,7 +212,6 @@ public class ImageStore {
         if (!this.lastWallpaperId.equals(id)) {
             String prevId = this.lastWallpaperId;
             this.lastWallpaperId = id;
-            saveToPrefs();
             listeners
                     .stream()
                     .filter(Objects::nonNull)
@@ -232,7 +229,6 @@ public class ImageStore {
             orderedImages.remove(swapImage);
             orderedImages.add(0, swapImage);
         }
-        saveToPrefs();
         listeners
                 .stream()
                 .filter(Objects::nonNull)
@@ -303,7 +299,6 @@ public class ImageStore {
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
             sortedImages.forEach(imgarray -> imgarray.add(imgTry));
-            saveToPrefs();
             if (updateView)
                 listeners.stream()
                     .filter(Objects::nonNull)
@@ -326,7 +321,6 @@ public class ImageStore {
             if (getActiveId().equals(deadImgWalking.getId())) {
                 setActive("");
             }
-            saveToPrefs();
             listeners
                     .stream()
                     .filter(Objects::nonNull)
@@ -393,7 +387,6 @@ public class ImageStore {
 
     public synchronized void add(Collection<ImageObject> col){
         col.forEach(img -> addImageObject(img, -1, false));
-        saveToPrefs();
         listeners.stream()
                 .filter(Objects::nonNull)
                 .forEach(ImageStoreListener::onReplace);
@@ -407,7 +400,6 @@ public class ImageStore {
     public synchronized void replace(Collection<ImageObject> col) {
         store.clear(true);
         col.forEach(this::addImageObject);
-        saveToPrefs();
     }
 
     /**
@@ -441,7 +433,6 @@ public class ImageStore {
         if (!listsOnly)
             setActive("");
         sortedImages.forEach(TreeSet::clear);
-        saveToPrefs();
         listeners
                 .stream()
                 .filter(Objects::nonNull)
@@ -474,7 +465,6 @@ public class ImageStore {
     public synchronized void setSortCriteria(int sortCriteria) {
         int prevSortCriteria = this.sortCriteria;
         this.sortCriteria = sortCriteria;
-        saveToPrefs();
         listeners
                 .stream()
                 .filter(Objects::nonNull)
@@ -495,7 +485,6 @@ public class ImageStore {
             if (wasActive)
                 lastWallpaperId = object.getId();
             addImageObject(object, newPos);
-            saveToPrefs();
             listeners.stream()
                     .filter(Objects::nonNull)
                     .forEach(listener -> listener.onMove(prevPos, newPos));

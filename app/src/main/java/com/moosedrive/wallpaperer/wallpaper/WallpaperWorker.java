@@ -58,8 +58,10 @@ public class WallpaperWorker extends Worker {
             store.updateFromPrefs(getApplicationContext());
         if (imgId != null) {
             imgObject = store.getImageObject(imgId);
-            if (imgObject != null)
+            if (imgObject != null) {
                 store.setActive(imgObject.getId());
+                store.saveToPrefs();
+            }
         } else {
             imgObject = null;
         }
