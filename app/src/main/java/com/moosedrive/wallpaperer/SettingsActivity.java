@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 
@@ -14,10 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
-import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.work.Data;
@@ -25,22 +21,11 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.WorkRequest;
 
-import com.google.android.material.snackbar.Snackbar;
-import com.moosedrive.wallpaperer.data.ImageObject;
-import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.data.ImportData;
 import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
-import com.moosedrive.wallpaperer.utils.IExportListener;
 import com.moosedrive.wallpaperer.utils.StorageUtils;
-import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -65,7 +50,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    public static class SettingsFragment extends PreferenceFragmentCompat implements IExportListener, WallpaperManager.IWallpaperAddedListener {
+    public static class SettingsFragment extends PreferenceFragmentCompat {
 
         private ActivityResultLauncher<Intent> importChooserResultLauncher;
 
@@ -99,8 +84,6 @@ public class SettingsActivity extends AppCompatActivity {
             if (button!=null){
                 button.setOnPreferenceClickListener(preference -> {
                     openImportChooser();
-                    //requireActivity().setResult(5);
-                    //requireActivity().finish();
                     return true;
                 });
             }
@@ -176,7 +159,6 @@ public class SettingsActivity extends AppCompatActivity {
                             Intent data = result.getData();
                             StorageUtils.CleanUpOrphans(requireContext().getApplicationContext(), requireContext().getFilesDir().getAbsolutePath());
                             if (data != null) {
-                                final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
                                 if (data.getData() != null) {
                                     //Single select
                                     requireContext().getContentResolver().takePersistableUriPermission(data.getData(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -207,90 +189,6 @@ public class SettingsActivity extends AppCompatActivity {
                             }
                         }
                     });
-        }
-
-        private ProgressDialogFragment importDialog;
-        @Override
-        public void onWallpaperLoadingStarted(int size, String message) {
-            requireActivity().runOnUiThread(() -> {
-                importDialog = ProgressDialogFragment.newInstance(size);
-                importDialog.showNow(getChildFragmentManager(), "add_progress");
-                if (message != null) {
-                    importDialog.setMessage(message);
-                }
-            });
-        }
-
-        @Override
-        public void onWallpaperLoadingIncrement(int inc) {
-            requireActivity().runOnUiThread(() -> {
-                if (inc < 0)
-                    importDialog.setIndeterminate(true);
-                else {
-                    importDialog.setIndeterminate(false);
-                    importDialog.incrementProgressBy(inc);
-                }
-            });
-        }
-
-        @Override
-        public void onWallpaperLoadingFinished(int status, String message) {
-            if (importDialog != null)
-                requireActivity().runOnUiThread(() -> importDialog.dismiss());
-            WallpaperManager.getInstance().removeWallpaperAddedListener(this);
-            ImageStore.getInstance(requireContext().getApplicationContext()).saveToPrefs();
-            if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
-                new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(requireContext())
-                        .setTitle("Error(s) loading images")
-                        .setMessage((message != null) ? message : "Unknown error.")
-                        .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
-                        .show());
-            } else {
-                Snackbar.make(requireView(), (message == null)?"Import complete.":message, Snackbar.LENGTH_LONG)
-                        .setBackgroundTint(requireActivity().getColor(androidx.cardview.R.color.cardview_dark_background))
-                        .setTextColor(requireActivity().getColor(R.color.white))
-                        .show();
-            }
-        }
-        private ProgressDialogFragment exportDialog;
-        @Override
-        public void onExportStarted(int size, String message) {
-            requireActivity().runOnUiThread(() -> {
-                exportDialog = ProgressDialogFragment.newInstance(size);
-                exportDialog.showNow(getChildFragmentManager(), "export_progress");
-                if (message != null){
-                    exportDialog.setMessage(message);
-                }
-            });
-        }
-
-        @Override
-        public void onExportIncrement(int inc) {
-            requireActivity().runOnUiThread(() -> {
-                if (inc < 0)
-                    exportDialog.setIndeterminate(true);
-                else {
-                    exportDialog.setIndeterminate(false);
-                    exportDialog.incrementProgressBy(inc);
-                }
-            });
-        }
-
-        @Override
-        public void onExportFinished(int status, String message) {
-                requireActivity().runOnUiThread(() -> {if (exportDialog != null) exportDialog.dismiss();});
-            if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
-                new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(requireContext())
-                        .setTitle("Error(s) exporting images")
-                        .setMessage((message != null) ? message : "Unknown error.")
-                        .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
-                        .show());
-            } else {
-                Snackbar.make(requireView(), (message == null)?"Export complete.":message, Snackbar.LENGTH_LONG)
-                        .setBackgroundTint(requireActivity().getColor(androidx.cardview.R.color.cardview_dark_background))
-                        .setTextColor(requireActivity().getColor(R.color.white))
-                        .show();
-            }
         }
     }
 

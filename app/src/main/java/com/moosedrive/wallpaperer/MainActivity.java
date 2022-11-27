@@ -59,6 +59,8 @@ import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.utils.BackgroundExecutor;
 import com.moosedrive.wallpaperer.utils.PreferenceHelper;
 import com.moosedrive.wallpaperer.utils.StorageUtils;
+import com.moosedrive.wallpaperer.wallpaper.IWallpaperAddedListener;
+import com.moosedrive.wallpaperer.wallpaper.IWallpaperSetListener;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperWorker;
 import com.stfalcon.imageviewer.StfalconImageViewer;
@@ -77,11 +79,11 @@ import me.zhanghai.android.fastscroll.FastScrollerBuilder;
  * The type Main activity.
  */
 public class MainActivity extends AppCompatActivity
-        implements WallpaperManager.WallpaperSetListener,
+        implements IWallpaperSetListener,
         ImageStore.ImageStoreListener,
         RVAdapter.ItemClickListener,
         SharedPreferences.OnSharedPreferenceChangeListener,
-        WallpaperManager.IWallpaperAddedListener
+        IWallpaperAddedListener
 {
 
     public static final String CHANNEL_ID = "notifications.wallpaperer";
@@ -712,10 +714,6 @@ public class MainActivity extends AppCompatActivity
                 }
                 return false;
             }
-
-
-
-
         };
 
         if (itemMoveHelper == null)
@@ -786,11 +784,6 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public void onConfigurationChanged(@NonNull Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
     public void onWallpaperSetNotFound(String id) {
         adapter.removeItem(store.getPosition(id));
         Toast.makeText(context,
@@ -844,7 +837,7 @@ public class MainActivity extends AppCompatActivity
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs();
         invalidateOptionsMenu();
-        if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
+        if (status != IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null) ? msg : "Unknown error.")

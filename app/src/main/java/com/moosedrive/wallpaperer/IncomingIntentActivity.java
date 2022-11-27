@@ -10,13 +10,13 @@ import android.os.Looper;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
+import com.moosedrive.wallpaperer.wallpaper.IWallpaperAddedListener;
 import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 
 import java.util.HashSet;
 
-public class IncomingIntentActivity extends AppCompatActivity implements WallpaperManager.IWallpaperAddedListener {
+public class IncomingIntentActivity extends AppCompatActivity implements IWallpaperAddedListener {
 
     private ImageStore store;
 
@@ -88,7 +88,7 @@ public class IncomingIntentActivity extends AppCompatActivity implements Wallpap
         });
         WallpaperManager.getInstance().removeWallpaperAddedListener(this);
         store.saveToPrefs();
-        if (status != WallpaperManager.IWallpaperAddedListener.SUCCESS) {
+        if (status != IWallpaperAddedListener.SUCCESS) {
             new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
                     .setTitle("Error(s) loading images")
                     .setMessage((msg != null) ? msg : "Unknown error.")

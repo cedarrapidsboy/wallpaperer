@@ -1,8 +1,9 @@
-package com.moosedrive.wallpaperer.utils;
+package com.moosedrive.wallpaperer.wallpaper;
 
-import com.moosedrive.wallpaperer.data.ImageObject;
-
-public interface IExportListener {
+/**
+ * The interface Wallpaper added listener.
+ */
+public interface IWallpaperAddedListener {
     /**
      * The constant SUCCESS.
      */
@@ -17,14 +18,14 @@ public interface IExportListener {
      *
      * @param size the size
      */
-    void onExportStarted(int size, String message);
+    void onWallpaperLoadingStarted(int size, String message);
 
     /**
      * On wallpaper loading increment.
      *
      * @param inc the inc
      */
-    void onExportIncrement(int inc);
+    void onWallpaperLoadingIncrement(int inc);
 
     /**
      * On wallpaper loading finished.
@@ -32,5 +33,6 @@ public interface IExportListener {
      * @param status  the status
      * @param message the message
      */
-    void onExportFinished(int status, String message);
+    void onWallpaperLoadingFinished(int status, String message);
+
 }

@@ -30,7 +30,7 @@ public class WallpaperManager {
     public static final long MINIMUM_REQUIRED_FREE_SPACE = 734003200L;
     private static WallpaperManager singleton;
     private final Set<IWallpaperAddedListener> wallpaperAddedListeners = new HashSet<>();
-    private final Set<WallpaperSetListener> wallpaperSetListeners = new HashSet<>();
+    private final Set<IWallpaperSetListener> wallpaperSetListeners = new HashSet<>();
     /**
      * The Loading done signal.
      */
@@ -57,7 +57,7 @@ public class WallpaperManager {
     public void addWallpaperAddedListener(IWallpaperAddedListener wal) {
         wallpaperAddedListeners.add(wal);
     }
-    public void addWallpaperSetListener(WallpaperSetListener wal) {
+    public void addWallpaperSetListener(IWallpaperSetListener wal) {
         wallpaperSetListeners.add(wal);
     }
     /**
@@ -68,7 +68,7 @@ public class WallpaperManager {
     public void removeWallpaperAddedListener(IWallpaperAddedListener wal) {
         wallpaperAddedListeners.remove(wal);
     }
-    public void removeWallpaperSetListener(WallpaperSetListener wal) {
+    public void removeWallpaperSetListener(IWallpaperSetListener wal) {
         wallpaperSetListeners.remove(wal);
     }
 
@@ -80,13 +80,13 @@ public class WallpaperManager {
     public void setSingleWallpaper(Context context, String imgObjectId) {
         ImageStore store = ImageStore.getInstance(context.getApplicationContext());
         if (store.size() == 0) {
-            wallpaperSetListeners.forEach(WallpaperSetListener::onWallpaperSetEmpty);
+            wallpaperSetListeners.forEach(IWallpaperSetListener::onWallpaperSetEmpty);
         } else {
             if (imgObjectId != null && !StorageUtils.sourceExists(context, store.getImageObject(imgObjectId).getUri())) {
                 wallpaperSetListeners.forEach(listener -> listener.onWallpaperSetNotFound(imgObjectId));
             } else {
                 WallpaperWorker.changeWallpaperNow(context, imgObjectId);
-                wallpaperSetListeners.forEach(WallpaperSetListener::onWallpaperSetSuccess);
+                wallpaperSetListeners.forEach(IWallpaperSetListener::onWallpaperSetSuccess);
             }
         }
     }
@@ -174,50 +174,6 @@ public class WallpaperManager {
                 }
             });
         }
-    }
-
-    public interface  WallpaperSetListener {
-
-        void onWallpaperSetNotFound(String id);
-        void onWallpaperSetEmpty();
-        void onWallpaperSetSuccess();
-    }
-
-    /**
-     * The interface Wallpaper added listener.
-     */
-    public interface IWallpaperAddedListener {
-        /**
-         * The constant SUCCESS.
-         */
-        int SUCCESS = 0;
-        /**
-         * The constant ERROR.
-         */
-        int ERROR = 1;
-
-        /**
-         * On wallpaper loading started.
-         *
-         * @param size the size
-         */
-        void onWallpaperLoadingStarted(int size, String message);
-
-        /**
-         * On wallpaper loading increment.
-         *
-         * @param inc the inc
-         */
-        void onWallpaperLoadingIncrement(int inc);
-
-        /**
-         * On wallpaper loading finished.
-         *
-         * @param status  the status
-         * @param message the message
-         */
-        void onWallpaperLoadingFinished(int status, String message);
-
     }
 
 
