@@ -20,7 +20,7 @@ abstract public class DragToMoveCallback extends ItemTouchHelper.SimpleCallback 
     /**
      * The recycler view.
      */
-    RecyclerView myRv;
+    final RecyclerView myRv;
 
     /**
      * Instantiates a new Drag to move callback.

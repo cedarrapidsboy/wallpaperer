@@ -129,9 +129,10 @@ public class ImageStore {
             Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
             if (!ignoreUri) {
                 try (ParcelFileDescriptor ignored = context.getContentResolver().openFileDescriptor(uri, "r")) {
+                    //noinspection unused
                     int x = 0; //ignore
                 } catch (FileNotFoundException e) {
-                    System.out.println("ERROR: updateFromPrefs: File no longer exists.");
+                    System.out.println("ERROR: updateFromPrefs: File no longer exists. " + uri.toString());
                     e.printStackTrace();
                     return loadedImgs;
                 } catch (IOException e) {
@@ -517,11 +518,13 @@ public class ImageStore {
          * On image store sort changed.
          */
         void onSortCriteriaChanged(int prevSortCriteria);
+        @SuppressWarnings("unused")
         void onDelete(ImageObject obj, int lastPos);
         void onShuffle();
         void onClear();
         void onMove(int oldPos, int newPos);
         void onSetActive(ImageObject activeObj, ImageObject prevObj);
+        @SuppressWarnings("unused")
         void onAdd(ImageObject obj, int pos);
         void onReplace();
     }
