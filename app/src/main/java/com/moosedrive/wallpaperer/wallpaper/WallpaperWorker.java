@@ -56,15 +56,8 @@ public class WallpaperWorker extends Worker {
         store = ImageStore.getInstance(getApplicationContext());
         if (store.size() == 0)
             store.updateFromPrefs(getApplicationContext());
-        if (imgId != null) {
+        if (imgId != null)
             imgObject = store.getImageObject(imgId);
-            if (imgObject != null) {
-                store.setActive(imgObject.getId());
-                store.saveToPrefs();
-            }
-        } else {
-            imgObject = null;
-        }
     }
 
     /**
@@ -148,8 +141,9 @@ public class WallpaperWorker extends Worker {
 
         try {
             Uri imgUri;
-            store.updateFromPrefs(getApplicationContext());
-            if (imgObject == null)
+            if (imgObject != null) //worker is setting a specific image (see constructor)
+                store.setActive(imgObject.getId());
+            else //worker is setting the next image in turn
                 imgObject = store.activateNext();
             if (imgObject != null) {
                 imgUri = imgObject.getUri();
@@ -167,6 +161,7 @@ public class WallpaperWorker extends Worker {
                         }
                     }).start();
                 } catch (IOException e) {
+                    //couldn't open image - remove it from the list
                     store.delImageObject(imgObject.getId());
                     e.printStackTrace();
                 } finally {
