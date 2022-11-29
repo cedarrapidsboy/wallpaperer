@@ -92,6 +92,7 @@ public class ImageStore {
     /**
      * Gets instance.
      *
+     * @param context the context
      * @return the instance
      */
     public static synchronized ImageStore getInstance(Context context) {
@@ -101,6 +102,12 @@ public class ImageStore {
         return store;
     }
 
+    /**
+     * Image objects to json json array.
+     *
+     * @param objects the objects
+     * @return the json array
+     */
     @NonNull
     public static JSONArray imageObjectsToJson(Collection<ImageObject> objects) {
         JSONArray imageArray = new JSONArray();
@@ -123,6 +130,15 @@ public class ImageStore {
         return imageArray;
     }
 
+    /**
+     * Parse json array linked list.
+     *
+     * @param context    the context
+     * @param imageArray the image array
+     * @param ignoreUri  the ignore uri
+     * @return the linked list
+     * @throws JSONException the json exception
+     */
     public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray, boolean ignoreUri) throws JSONException {
         LinkedList<ImageObject> loadedImgs = new LinkedList<>();
         for (int i = 0; i < imageArray.length(); i++) {
@@ -186,6 +202,7 @@ public class ImageStore {
      * Advances the active ImageObject to the next image.
      * Returns the ImageObject, or null if there is no other
      * valid ImageObject and clears the active object.
+     *
      * @return the next image after the active one, or null
      */
     public synchronized ImageObject activateNext(){
@@ -238,7 +255,6 @@ public class ImageStore {
 
     /**
      * Save to prefs.
-     *
      */
     public synchronized void saveToPrefs() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -280,7 +296,8 @@ public class ImageStore {
 
     /**
      * Add image object.
-     *  @param imgTry      the img
+     *
+     * @param imgTry      the img
      * @param refPosition the position Where to place the new object, or -1 to append
      */
     public synchronized void addImageObject(ImageObject imgTry, int refPosition) {
@@ -371,10 +388,25 @@ public class ImageStore {
      * @return the image object [ ]
      */
     public synchronized ImageObject[] getImageObjectArray() {
-        if (sortCriteria == SORT_BY_CUSTOM)
-            return orderedImages.toArray(new ImageObject[0]);
-        else
-            return sortedImages.get(sortCriteria).toArray(new ImageObject[0]);
+        return getImageObjectArray(sortCriteria);
+    }
+
+    /**
+     * Get image object array image object [ ].
+     * Criteria is SORT_BY_CUSTOM/NAME/DATE/SIZE
+     *
+     * @param criteria the criteria
+     * @return the image object [ ]
+     */
+    public synchronized ImageObject[] getImageObjectArray(int criteria) {
+        try {
+            if (criteria == SORT_BY_CUSTOM)
+                return orderedImages.toArray(new ImageObject[0]);
+            else
+                return sortedImages.get(criteria).toArray(new ImageObject[0]);
+        } catch (IndexOutOfBoundsException e){
+            return getReferenceObjects().toArray(new ImageObject[0]);
+        }
     }
 
     /**
@@ -386,6 +418,11 @@ public class ImageStore {
         return new ArrayList<>(referenceImages.values());
     }
 
+    /**
+     * Add.
+     *
+     * @param col the col
+     */
     public synchronized void add(Collection<ImageObject> col){
         col.forEach(img -> addImageObject(img, -1, false));
         listeners.stream()
@@ -516,16 +553,58 @@ public class ImageStore {
     public interface ImageStoreListener {
         /**
          * On image store sort changed.
+         *
+         * @param prevSortCriteria the prev sort criteria
          */
         void onSortCriteriaChanged(int prevSortCriteria);
+
+        /**
+         * On delete.
+         *
+         * @param obj     the obj
+         * @param lastPos the last pos
+         */
         @SuppressWarnings("unused")
         void onDelete(ImageObject obj, int lastPos);
+
+        /**
+         * On shuffle.
+         */
         void onShuffle();
+
+        /**
+         * On clear.
+         */
         void onClear();
+
+        /**
+         * On move.
+         *
+         * @param oldPos the old pos
+         * @param newPos the new pos
+         */
         void onMove(int oldPos, int newPos);
+
+        /**
+         * On set active.
+         *
+         * @param activeObj the active obj
+         * @param prevObj   the prev obj
+         */
         void onSetActive(ImageObject activeObj, ImageObject prevObj);
+
+        /**
+         * On add.
+         *
+         * @param obj the obj
+         * @param pos the pos
+         */
         @SuppressWarnings("unused")
         void onAdd(ImageObject obj, int pos);
+
+        /**
+         * On replace.
+         */
         void onReplace();
     }
 

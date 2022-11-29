@@ -48,9 +48,12 @@ import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -403,7 +406,7 @@ public class StorageUtils {
      * @param objs images to add to this backup volume
      * @throws IOException Unknown IOException
      */
-    public static int makeBackup(Collection<ImageObject> objs, Worker listener) throws IOException {
+    public static int makeBackup(List<ImageObject> objs, Worker listener) throws IOException {
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         String dateString = dateFormat.format(new Date());
         return makeBackup(objs, "wallpaperer-" + dateString, 1, listener);
@@ -423,7 +426,17 @@ public class StorageUtils {
         public Result doWork() {
             int exportResult;
             try {
-                exportResult = StorageUtils.makeBackup(ImageStore.getInstance(getApplicationContext()).getReferenceObjects(), this);
+                ImageStore store = ImageStore.getInstance(getApplicationContext());
+                //Get ordered list of object to preserve the customized order
+                List<ImageObject> orderedImages = Arrays.asList(store.getImageObjectArray(ImageStore.SORT_BY_CUSTOM));
+                //Get the reference collection of objects just in case the ordered list does not have them all
+                Collection<ImageObject> referenceImages = (store.getReferenceObjects());
+                //Add any missing objects to the end of the ordered list
+                referenceImages.forEach(refObj -> {
+                    if (!orderedImages.contains(refObj))
+                        orderedImages.add(refObj);
+                });
+                exportResult = StorageUtils.makeBackup(orderedImages, this);
             } catch (IOException e) {
                 e.printStackTrace();
                 return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Export failed. Unable to create file.").build());
@@ -444,11 +457,15 @@ public class StorageUtils {
      * @param volNum the number of the volume being created
      * @throws IOException Unknown IOException
      */
-    private static int makeBackup(Collection<ImageObject> objs, String id, int volNum, Worker worker) throws IOException {
+    private static int makeBackup(List<ImageObject> objs, String id, int volNum, Worker worker) throws IOException {
         worker.setProgressAsync(new Data.Builder().putString(ExportBackupWorker.STATUS_MESSAGE, "Exporting images to Downloads directory..." + ((volNum>1)?"\nVolume " + volNum:"")).build());
         File zipDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
         Stack<ImageObject> objStack = new Stack<>();
-        objStack.addAll(objs);
+        //Need to reverse the order of objects before we drop them into the stack
+        //This is to preserve the original order as we pop them off the stack
+        List<ImageObject> listObjs = new ArrayList<>(objs);
+        Collections.reverse(listObjs);
+        objStack.addAll(listObjs);
         if (objs.size() > 0) {
             if (volNum < 1)
                 volNum = 1;
