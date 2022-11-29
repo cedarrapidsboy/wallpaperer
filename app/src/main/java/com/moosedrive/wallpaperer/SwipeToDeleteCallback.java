@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
-abstract public class SwipeToDeleteCallback extends ItemTouchHelper.Callback {
+abstract public class SwipeToDeleteCallback extends ItemTouchHelper.SimpleCallback {
 
     final Context mContext;
     private final Paint mClearPaint;
@@ -26,7 +26,10 @@ abstract public class SwipeToDeleteCallback extends ItemTouchHelper.Callback {
     private final int intrinsicHeight;
 
 
-    SwipeToDeleteCallback(Context context) {
+    public SwipeToDeleteCallback(Context context) {
+        super(0,
+                ItemTouchHelper.LEFT
+                | ItemTouchHelper.RIGHT);
         mContext = context;
         mBackground = new ColorDrawable();
         backgroundColor = Color.parseColor("#b80f0a");

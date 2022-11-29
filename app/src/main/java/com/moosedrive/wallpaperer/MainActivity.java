@@ -96,8 +96,7 @@ public class MainActivity extends AppCompatActivity
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
-    private ItemTouchHelper itemMoveHelper;
-    private ItemTouchHelper itemSwipeHelper;
+    private ItemTouchHelper itemDragHelper;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
     private ActivityResultLauncher<Intent> settingsResultLauncher;
 
@@ -343,10 +342,8 @@ public class MainActivity extends AppCompatActivity
         rv.removeOnScrollListener(preloader);
         WallpaperManager.getInstance().removeWallpaperSetListener(this);
         PreferenceManager.getDefaultSharedPreferences(context).unregisterOnSharedPreferenceChangeListener(this);
-        if (itemMoveHelper != null)
-            itemMoveHelper.attachToRecyclerView(null);
-        if (itemSwipeHelper != null)
-            itemSwipeHelper.attachToRecyclerView(null);
+        if (itemDragHelper != null)
+            itemDragHelper.attachToRecyclerView(null);
         store.saveToPrefs();
         super.onDestroy();
     }
@@ -654,7 +651,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void enableSwipeToDeleteAndUndo() {
-        SwipeToDeleteCallback swipeToDeleteCallback = new SwipeToDeleteCallback(this) {
+        ItemMoveCallback itemMoveCallback = new ItemMoveCallback(rv) {
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 final int position = viewHolder.getAbsoluteAdapterPosition();
@@ -700,9 +697,6 @@ public class MainActivity extends AppCompatActivity
                         .show();
 
             }
-        };
-
-        DragToMoveCallback dragCallback = new DragToMoveCallback(rv) {
             @Override
             public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
                 if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM) {
@@ -714,15 +708,8 @@ public class MainActivity extends AppCompatActivity
                 return false;
             }
         };
-
-        if (itemMoveHelper == null)
-            itemMoveHelper = new ItemTouchHelper(dragCallback);
-        if (itemSwipeHelper == null)
-            itemSwipeHelper = new ItemTouchHelper(swipeToDeleteCallback);
-        itemMoveHelper.attachToRecyclerView(null);
-        itemSwipeHelper.attachToRecyclerView(rv);
-        if (store.getSortCriteria() == ImageStore.SORT_BY_CUSTOM)
-            itemMoveHelper.attachToRecyclerView(rv);
+        itemDragHelper = new ItemTouchHelper(itemMoveCallback);
+        itemDragHelper.attachToRecyclerView(rv);
     }
 
     @Override
