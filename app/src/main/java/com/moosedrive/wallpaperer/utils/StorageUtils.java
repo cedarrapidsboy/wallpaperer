@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Environment;
@@ -14,6 +15,7 @@ import android.provider.DocumentsContract;
 
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
+import androidx.palette.graphics.Palette;
 import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
@@ -21,6 +23,7 @@ import androidx.work.WorkerParameters;
 import com.moosedrive.wallpaperer.data.ImageObject;
 import com.moosedrive.wallpaperer.data.ImageStore;
 import com.moosedrive.wallpaperer.data.ImportData;
+import com.moosedrive.wallpaperer.wallpaper.WallpaperManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -66,7 +69,7 @@ public class StorageUtils {
     private static final String THUMBDIR = "thumbs";
     private static final int BUFFER_SIZE = 4096;
 
-    public static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, boolean crop) {
+    public static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, boolean crop, int cropColor) {
         int sourceWidth = source.getWidth();
         int sourceHeight = source.getHeight();
 
@@ -94,8 +97,8 @@ public class StorageUtils {
         // scaled bitmap onto it.
         Bitmap dest = Bitmap.createBitmap(newWidth, newHeight, source.getConfig());
         Canvas canvas = new Canvas(dest);
+        canvas.drawColor(cropColor);
         canvas.drawBitmap(source, null, targetRect, null);
-
         return dest;
     }
 
@@ -180,7 +183,7 @@ public class StorageUtils {
                  BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
                 // Recompress before writing to new file
                 Bitmap originalBm = BitmapFactory.decodeStream(input);
-                originalBm = resizeBitmapCenter(512, 512, originalBm, true);
+                originalBm = resizeBitmapCenter(512, 512, originalBm, true, WallpaperManager.getDominantColor(originalBm));
                 originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
                 return Uri.fromFile(destinationFile);
             }

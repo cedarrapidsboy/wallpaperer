@@ -1,11 +1,14 @@
 package com.moosedrive.wallpaperer.wallpaper;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.StatFs;
 import android.provider.DocumentsContract;
 
 import androidx.annotation.NonNull;
+import androidx.palette.graphics.Palette;
 
 import com.moosedrive.wallpaperer.R;
 import com.moosedrive.wallpaperer.data.ImageObject;
@@ -47,6 +50,11 @@ public class WallpaperManager {
         if (singleton == null)
             singleton = new WallpaperManager();
         return singleton;
+    }
+
+    public static int getDominantColor(Bitmap bitmapSource) {
+        Palette p = Palette.from(bitmapSource).generate();
+        return p.getDominantColor(Color.argb(255,0,0,0));
     }
 
     /**
