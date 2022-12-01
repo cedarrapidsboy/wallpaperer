@@ -69,7 +69,14 @@ public class StorageUtils {
     private static final String THUMBDIR = "thumbs";
     private static final int BUFFER_SIZE = 4096;
 
-    public static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, boolean crop, int cropColor) {
+    public static Bitmap resizeBitmapCenterCropped(int newWidth, int newHeight, Bitmap source){
+        return resizeBitmapCenter(newWidth,newHeight, source, true, Color.argb(255,0,0,0));
+    }
+    public static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, int cropColor){
+        return resizeBitmapCenter(newWidth,newHeight, source, false, cropColor);
+    }
+
+    private static Bitmap resizeBitmapCenter(int newWidth, int newHeight, Bitmap source, boolean crop, int cropColor) {
         int sourceWidth = source.getWidth();
         int sourceHeight = source.getHeight();
 
@@ -183,7 +190,7 @@ public class StorageUtils {
                  BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
                 // Recompress before writing to new file
                 Bitmap originalBm = BitmapFactory.decodeStream(input);
-                originalBm = resizeBitmapCenter(512, 512, originalBm, true, WallpaperManager.getDominantColor(originalBm));
+                originalBm = resizeBitmapCenterCropped(512, 512, originalBm);
                 originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
                 return Uri.fromFile(destinationFile);
             }

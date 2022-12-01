@@ -154,7 +154,10 @@ public class WallpaperWorker extends Worker {
                     new Thread(() -> {
                         try {
                             boolean crop = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean(getApplicationContext().getString(R.string.preference_image_crop), true);
-                            Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop, com.moosedrive.wallpaperer.wallpaper.WallpaperManager.getDominantColor(bitmapSource));
+                            Bitmap bitmap = (crop)?
+                                    StorageUtils.resizeBitmapCenterCropped(width, height, bitmapSource)
+                                    :
+                                    StorageUtils.resizeBitmapCenter(width, height, bitmapSource, com.moosedrive.wallpaperer.wallpaper.WallpaperManager.getDominantColor(bitmapSource));
                             WallpaperManager.getInstance(getApplicationContext()).setBitmap(bitmap);
                         } catch (IOException e) {
                             e.printStackTrace();
