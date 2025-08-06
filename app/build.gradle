@@ -8,6 +8,7 @@ android {
     defaultConfig {
         applicationId "com.moosedrive.wallpaperer"
         minSdk defaultMinSdkVersion
+        //noinspection EditedTargetSdkVersion
         targetSdk 35
         versionCode 1
         versionName "1.0"
