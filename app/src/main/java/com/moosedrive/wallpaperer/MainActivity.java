@@ -9,12 +9,14 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -34,6 +36,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.preference.PreferenceManager;
@@ -99,6 +102,7 @@ public class MainActivity extends AppCompatActivity
     private ItemTouchHelper itemDragHelper;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
     private ActivityResultLauncher<Intent> settingsResultLauncher;
+    private View flb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,6 +132,7 @@ public class MainActivity extends AppCompatActivity
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(v -> openImageChooser());
+        View flb = findViewById(R.id.floatingLocateButton);
 
         //Create swipe action for items
         enableSwipeToDeleteAndUndo();
@@ -141,14 +146,15 @@ public class MainActivity extends AppCompatActivity
         timerArc = findViewById(R.id.timerArc);
         if (PreferenceHelper.isActive(context)) {
             try {
-                if (WorkManager.getInstance(context).getWorkInfosByTag(getString(R.string.work_random_wallpaper_id)).get().size() == 0) {
+                if (WorkManager.getInstance(context).getWorkInfosByTag(getString(R.string.work_random_wallpaper_id)).get().isEmpty()) {
                     WallpaperWorker.scheduleRandomWallpaper(context);
                 }
             } catch (ExecutionException | InterruptedException e) {
-                e.printStackTrace();
+                Log.e("MainActivity", "onCreate: Error scheduling wallpaper change",e);
             }
             timerArc.start();
         }
+
     }
 
     /**
@@ -239,7 +245,7 @@ public class MainActivity extends AppCompatActivity
 
                     default:
                         sv.hide();
-                        SharedPreferences prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(context);
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                         SharedPreferences.Editor edit = prefs.edit();
                         edit.putBoolean(getString(R.string.first_time), false);
                         edit.apply();
@@ -253,8 +259,8 @@ public class MainActivity extends AppCompatActivity
     private void setupRecyclerView() {
         rv = findViewById(R.id.rv);
         adapter = new RVAdapter(context, store, PreferenceHelper.getGridLayoutColumns(context));
-        int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-        int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
+        int width = Resources.getSystem().getDisplayMetrics().widthPixels;
+        int height = Resources.getSystem().getDisplayMetrics().heightPixels;
         int columns = width / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
         int rows = height / RVAdapter.getCardSize(context, PreferenceHelper.getGridLayoutColumns(context));
         rv.setLayoutManager(
@@ -297,11 +303,51 @@ public class MainActivity extends AppCompatActivity
             preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
             rv.addOnScrollListener(preloader);
         }
+        // Add the OnScrollListener
+        rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    // RecyclerView has stopped scrolling
+                    Log.d("RecyclerViewScroll", "RecyclerView has stopped scrolling.");
+                    boolean isVisible = adapter.isVisible(store.getImageObject(store.getActivePos()));
+                    Log.d("RecyclerViewScroll", "It's visible: " + Boolean.toString(isVisible));
+                    View locateButton = findViewById(R.id.floatingLocateButton);
+                    if (locateButton != null)
+                        locateButton.setVisibility(isVisible ? View.INVISIBLE : View.VISIBLE);
+
+                    // TODO: Add your code here to execute when scrolling stops.
+                    // For example, you could load more items, update UI elements,
+                    // or trigger some other action.
+
+                    // Example: Show a Toast
+                    // Toast.makeText(context, "RecyclerView stopped scrolling", Toast.LENGTH_SHORT).show();
+
+                } else if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
+                    // The user is actively dragging the RecyclerView
+                    Log.d("RecyclerViewScroll", "RecyclerView is being dragged.");
+                } else if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                    // The RecyclerView is currently animating to a final position after a drag or fling
+                    Log.d("RecyclerViewScroll", "RecyclerView is settling.");
+                }
+            }
+
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                // This method is called when the RecyclerView is scrolled.
+                // dx and dy are the amount of change in pixels.
+                // You can use this if you need to react to continuous scrolling.
+            }
+        });
+
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(R.id.menu_goto).setVisible(!store.getActiveId().equals(""));
+        menu.findItem(R.id.menu_goto).setVisible(!store.getActiveId().isEmpty());
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -424,7 +470,10 @@ public class MainActivity extends AppCompatActivity
                             else if (workInfo.getState().equals(WorkInfo.State.FAILED))
                                 builder.setProgress(0,0,false)
                                         .setContentText("Export failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
-                            notificationManager.notify(notificationId, builder.build());
+                            if (ActivityCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED) {
+                                notificationManager.notify(notificationId, builder.build());
+                            }
+
                         }
                     });
         }
@@ -465,7 +514,10 @@ public class MainActivity extends AppCompatActivity
                             else if (workInfo.getState().equals(WorkInfo.State.FAILED))
                                 builder.setProgress(0,0,false)
                                         .setContentText("Import failed. " + workInfo.getOutputData().getString(StorageUtils.ImportBackupWorker.STATUS_MESSAGE));
-                            notificationManager.notify(notificationId, builder.build());
+                            if (ActivityCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED) {
+                                notificationManager.notify(notificationId, builder.build());
+                            }
+
                         }
                     });
         }
@@ -750,7 +802,7 @@ public class MainActivity extends AppCompatActivity
             String id = sharedPreferences.getString(getString(R.string.last_wallpaper), "");
             //Catch any code that is changing the last wallpaper preference
             // without updating the store.
-            if (!id.equals(store.getActiveId())) {
+            if (id != null && !id.equals(store.getActiveId())) {
                 store.setActive(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
                 invalidateOptionsMenu();
             }
@@ -887,4 +939,6 @@ public class MainActivity extends AppCompatActivity
         if (inForeground)
             runOnUiThread(()->adapter.notifyDataSetChanged());
     }
+
+
 }

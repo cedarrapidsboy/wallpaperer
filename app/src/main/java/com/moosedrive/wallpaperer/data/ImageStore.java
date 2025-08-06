@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.preference.PreferenceManager;
+import android.util.Log;
+
+import androidx.preference.PreferenceManager;
 
 import androidx.annotation.NonNull;
 
@@ -52,6 +54,11 @@ public class ImageStore {
      * The constant SORT_BY_SIZE.
      */
     public static final int SORT_BY_SIZE = 2;
+
+    /**
+     * TAG used for logging.
+     */
+    public static final String TAG = "ImageStore";
     /**
      * The constant SORT_DEFAULT.
      */
@@ -124,7 +131,8 @@ public class ImageStore {
                 imageJson.put("color", io.getColor());
                 imageArray.put(imageJson);
             } catch (JSONException e) {
-                e.printStackTrace();
+                Log.e(ImageStore.class.getName(), "Error converting ImageObject to JSON", e);
+
             }
         });
         return imageArray;
@@ -140,7 +148,7 @@ public class ImageStore {
      * @throws JSONException the json exception
      */
     public static LinkedList<ImageObject> parseJsonArray(Context context, JSONArray imageArray, boolean ignoreUri) throws JSONException {
-        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
+        LinkedList<ImageObject> loadedImages = new LinkedList<>();
         for (int i = 0; i < imageArray.length(); i++) {
             Uri uri = Uri.parse(imageArray.getJSONObject(i).getString("uri"));
             if (!ignoreUri) {
@@ -148,12 +156,11 @@ public class ImageStore {
                     //noinspection unused
                     int x = 0; //ignore
                 } catch (FileNotFoundException e) {
-                    System.out.println("ERROR: updateFromPrefs: File no longer exists. " + uri.toString());
-                    e.printStackTrace();
-                    return loadedImgs;
+                    Log.e("updateFromPrefs", "File no longer exists. " + uri, e);
+                    return loadedImages;
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    return loadedImgs;
+                    Log.e("parseJsonArray", "Error opening file descriptor", e);
+                    return loadedImages;
                 }
             }
             try {
@@ -171,12 +178,12 @@ public class ImageStore {
                         addedDate,
                         creationDate);
                 io.setColor(imageArray.getJSONObject(i).getInt("color"));
-                loadedImgs.add(io);
+                loadedImages.add(io);
             } catch (NoSuchAlgorithmException | JSONException | IOException e) {
-                e.printStackTrace();
+                Log.e("parseJsonArray", "Error parsing JSON", e);
             }
         }
-        return loadedImgs;
+        return loadedImages;
     }
 
     /**
@@ -273,14 +280,14 @@ public class ImageStore {
      */
     public synchronized void updateFromPrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        LinkedList<ImageObject> loadedImgs = new LinkedList<>();
+        LinkedList<ImageObject> loadedImages = new LinkedList<>();
         try {
             JSONArray imageArray = new JSONArray(prefs.getString("sources", "[]"));
-            loadedImgs = parseJsonArray(context, imageArray, false);
+            loadedImages = parseJsonArray(context, imageArray, false);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e(ImageStore.TAG, "Failed to load images from prefs: ", e);
         }
-        replace(loadedImgs);
+        replace(loadedImages);
         setActive(prefs.getString(context.getString(R.string.last_wallpaper), ""));
         setSortCriteria(prefs.getInt("sort", SORT_DEFAULT));
     }
@@ -316,7 +323,7 @@ public class ImageStore {
             if (index < 0 || index > orderedImages.size())
                 index = orderedImages.size();
             orderedImages.add(index, imgTry);
-            sortedImages.forEach(imgarray -> imgarray.add(imgTry));
+            sortedImages.forEach(imageArray -> imageArray.add(imgTry));
             if (updateView)
                 listeners.stream()
                     .filter(Objects::nonNull)

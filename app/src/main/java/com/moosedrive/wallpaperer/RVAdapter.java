@@ -82,6 +82,27 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
         View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.cardlayout, parent, false);
         return new ImageHolder(v);
     }
+    private final List<ImageObject> mVisibleItems = new ArrayList<>();
+    @Override
+    public void onViewAttachedToWindow(@NonNull ImageHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        ImageObject item = store.getImageObject(holder.getBindingAdapterPosition());
+        if (item != null && !mVisibleItems.contains(item)) {
+            mVisibleItems.add(item);
+        }
+    }
+    public boolean isVisible(ImageObject image){
+        return mVisibleItems.contains(image);
+    }
+    @Override
+    public void onViewDetachedFromWindow(@NonNull ImageHolder holder) {
+        super.onViewDetachedFromWindow(holder);
+        ImageObject item = store.getImageObject(holder.getBindingAdapterPosition());
+        if (item != null && mVisibleItems.contains(item)) {
+            mVisibleItems.remove(item);
+        }
+    }
+
 
     @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
@@ -150,7 +171,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
 
     @NonNull
     @Override
-    public String getPopupText(int position) {
+    public String getPopupText(@NonNull View Mrecyclerview, int position) {
         return (position + 1) + " of " + store.size();
     }
 

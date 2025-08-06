@@ -106,9 +106,11 @@ public class WallpaperWorker extends Worker {
         if (!bReqIdle)
             requestBuilder.setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.DEFAULT_BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         if (!runNow) {
+            //We rescheduling the next wallpaper. Be sure to cancel any previous scheduled work in order to avoid duplication
+            WorkManager.getInstance(mContext).cancelAllWorkByTag(mContext.getString(R.string.work_random_wallpaper_id));
+            //Set the preferred delay for the next scheduled wallpaper change
             requestBuilder.setInitialDelay(PreferenceHelper.getWallpaperDelay(mContext), TimeUnit.MILLISECONDS)
                     .addTag(mContext.getString(R.string.work_random_wallpaper_id));
-            WorkManager.getInstance(mContext).cancelAllWorkByTag(mContext.getString(R.string.work_random_wallpaper_id));
         }
         OneTimeWorkRequest saveRequest = requestBuilder.build();
         WorkManager.getInstance(mContext)
