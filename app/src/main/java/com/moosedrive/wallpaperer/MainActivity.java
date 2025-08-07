@@ -30,6 +30,7 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -101,8 +102,9 @@ public class MainActivity extends AppCompatActivity
     private SwitchMaterial toggler;
     private TimerArc timerArc;
     private ItemTouchHelper itemDragHelper;
-    private ActivityResultLauncher<Intent> imageChooserResultLauncher;
     private ActivityResultLauncher<Intent> settingsResultLauncher;
+
+    private ActivityResultLauncher<PickVisualMediaRequest> pickMultipleMediaLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,7 +129,9 @@ public class MainActivity extends AppCompatActivity
         if (store.size() == 0)
             store.updateFromPrefs(context);
         //Image Chooser
-        registerImageChooser();
+        //registerImageChooser();
+        registerPhotoPickerLaunchers();
+
         settingsResultLauncher = getSettingsResultLauncher();
         //Set onclick listener for the add image(s) button
         View fab = findViewById(R.id.floatingActionButton);
@@ -162,34 +166,21 @@ public class MainActivity extends AppCompatActivity
         setLocaterButtonVisibility();
     }
 
-    /**
-     * For when the (+) button is clicked we need an image chooser
-     */
-    private void registerImageChooser() {
-        imageChooserResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    HashSet<Uri> sources = new HashSet<>();
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        // There are no request codes
-                        Intent data = result.getData();
-                        StorageUtils.CleanUpOrphans(getApplicationContext(), getFilesDir().getAbsolutePath());
-                        if (data != null) {
-                            if (data.getData() != null) {
-                                //Single select
-                                sources.add(data.getData());
+    private void registerPhotoPickerLaunchers() {
 
-                            } else if (data.getClipData() != null) {
-                                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                    Uri uri = data.getClipData().getItemAt(i).getUri();
-                                    sources.add(uri);
-                                }
-                            }
-                            WallpaperManager.getInstance().addWallpaperAddedListener(this);
-                            WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance(getApplicationContext()));
-                        }
-                    }
-                });
+        // Launcher for selecting multiple media items.
+        // You can set a max limit for items if desired using PickMultipleVisualMedia(maxItems)
+        pickMultipleMediaLauncher = registerForActivityResult(new ActivityResultContracts.PickMultipleVisualMedia(), uris -> {
+            if (uris != null && !uris.isEmpty()) {
+                Log.d("PhotoPicker", "Multiple Selected URIs: " + uris.size());
+                StorageUtils.CleanUpOrphans(getApplicationContext(), getFilesDir().getAbsolutePath()); // Keep if necessary
+                HashSet<Uri> sources = new HashSet<>(uris); // Convert List<Uri> to HashSet<Uri>
+                WallpaperManager.getInstance().addWallpaperAddedListener(this);
+                WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance(getApplicationContext()));
+            } else {
+                Log.d("PhotoPicker", "No media selected (multiple) or operation cancelled");
+            }
+        });
     }
 
     private boolean inForeground = false;
@@ -752,14 +743,18 @@ public class MainActivity extends AppCompatActivity
      */
     public void openImageChooser() {
 
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("image/*");
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        //intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        imageChooserResultLauncher.launch(Intent.createChooser(intent, getString(R.string.intent_chooser_select_images)));
+        // Launch the Photo Picker for multiple image selection.
+        // You can choose to launch pickSingleMediaLauncher if you only want single selection.
+        // Or provide UI options for the user to pick single vs multiple.
+        if (pickMultipleMediaLauncher != null) {
+            pickMultipleMediaLauncher.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE) // Or .ImageAndVideo.INSTANCE if you want videos too
+                    .build());
+        } else {
+            Log.e("MainActivity", "pickMultipleMediaLauncher is not initialized.");
+            // Fallback or error message if the launcher isn't ready
+            Toast.makeText(context, "Error opening image picker.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void enableSwipeToDeleteAndUndo() {

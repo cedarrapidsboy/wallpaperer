@@ -68,16 +68,17 @@
         android:layout_height="@dimen/_56sdp"
         android:layout_marginStart="@dimen/button_padding"
         android:layout_marginBottom="@dimen/button_padding"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="invisible"
+        app:cardBackgroundColor="@android:color/black"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:cardUseCompatPadding="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:cardElevation="4dp"
-        app:cardCornerRadius="12dp"
-        app:cardUseCompatPadding="true"
-        app:cardBackgroundColor="@android:color/black"
-        app:strokeWidth="4dp"
         app:strokeColor="@color/cardview_dark_background"
-        android:clickable="true"
-        android:focusable="true">
+        app:strokeWidth="4dp">
 
         <FrameLayout
             android:id="@+id/floatingLocateButtonFrameLayout"
