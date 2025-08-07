@@ -133,6 +133,11 @@ public class MainActivity extends AppCompatActivity
         View fab = findViewById(R.id.floatingActionButton);
         fab.setOnClickListener(v -> openImageChooser());
         View flb = findViewById(R.id.floatingLocateButton);
+        flb.setOnClickListener(v -> {
+            if (rv != null && store != null && store.getActivePos() > -1)
+                    rv.scrollToPosition(store.getActivePos());
+                    flb.setVisibility(View.INVISIBLE);
+        });
 
         //Create swipe action for items
         enableSwipeToDeleteAndUndo();
