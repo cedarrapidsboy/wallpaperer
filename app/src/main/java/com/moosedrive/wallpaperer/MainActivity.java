@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity
 {
 
     public static final String CHANNEL_ID = "notifications.wallpaperer";
-    final boolean isloading = false;
+    final boolean isLoading = false;
     RecyclerView rv;
     ImageStore store;
     RVAdapter adapter;
@@ -842,7 +842,7 @@ public class MainActivity extends AppCompatActivity
                 if (PreferenceHelper.isActive(this)) {
                     WallpaperWorker.scheduleRandomWallpaper(context);
                 }
-            } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
+            } else if (!isLoading && key.equals(getString(R.string.preference_card_stats)))
                 runOnUiThread(() -> adapter.notifyItemRangeChanged(0, store.getImageObjectArray().length));
             else if (key.equals(getString(R.string.preference_worker_last_queue))) {
                 if (PreferenceHelper.isActive(context))
@@ -973,6 +973,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSetActive(ImageObject activeObj, ImageObject prevObj) {
+        runOnUiThread(this::setLocaterButtonVisibility);
         int prevPos = (prevObj != null)?store.getPosition(prevObj.getId()):-1;
             int activePos = (activeObj != null)?store.getPosition(activeObj.getId()):-1;
             if (prevPos > -1)
