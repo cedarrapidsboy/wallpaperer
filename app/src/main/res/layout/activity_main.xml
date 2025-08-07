@@ -61,23 +61,56 @@
         app:shapeAppearance="@style/Theme.AppCompat.Light"
         app:shapeAppearanceOverlay="@style/Theme.AppCompat.Light"
         tools:ignore="TouchTargetSizeCheck,ImageContrastCheck" />
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/floatingLocateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="@dimen/_56sdp"
+        android:layout_height="@dimen/_56sdp"
         android:layout_marginStart="@dimen/button_padding"
         android:layout_marginBottom="@dimen/button_padding"
-        android:clickable="true"
-        android:contentDescription="@string/scroll_to_active_image"
-        android:src="@drawable/baseline_location_searching_24"
-        android:visibility="invisible"
-        app:fabCustomSize="@dimen/_56sdp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:maxImageSize="@dimen/_24sdp"
-        app:shapeAppearance="@style/Theme.AppCompat.Light"
-        app:shapeAppearanceOverlay="@style/Theme.AppCompat.Light"
-        tools:ignore="TouchTargetSizeCheck,ImageContrastCheck" />
+        app:cardElevation="4dp"
+        app:cardCornerRadius="12dp"
+        app:cardUseCompatPadding="true"
+        app:cardBackgroundColor="@android:color/black"
+        app:strokeWidth="4dp"
+        app:strokeColor="@color/cardview_dark_background"
+        android:clickable="true"
+        android:focusable="true">
+
+        <FrameLayout
+            android:id="@+id/floatingLocateButtonFrameLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/scroll_to_active_image">
+            <!-- Removed android:clickable="true" and android:focusable="true" -->
+
+            <ImageView
+                android:id="@+id/locateButtonImageView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/preview_of_the_active_image"
+                android:scaleType="centerCrop"
+                android:src="@drawable/colors" />
+
+            <!-- Black background container for location icon -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:background="@color/cardview_dark_background"
+                android:padding="4dp">
+
+                <ImageView
+                    android:layout_width="@dimen/_12sdp"
+                    android:layout_height="@dimen/_12sdp"
+                    android:contentDescription="@string/location_icon"
+                    android:src="@drawable/baseline_location_searching_24" />
+            </FrameLayout>
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
 
     <com.moosedrive.wallpaperer.TimerArc
         android:id="@+id/timerArc"

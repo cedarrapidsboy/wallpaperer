@@ -22,6 +22,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
@@ -102,7 +103,6 @@ public class MainActivity extends AppCompatActivity
     private ItemTouchHelper itemDragHelper;
     private ActivityResultLauncher<Intent> imageChooserResultLauncher;
     private ActivityResultLauncher<Intent> settingsResultLauncher;
-    private View flb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,9 +135,9 @@ public class MainActivity extends AppCompatActivity
         View flb = findViewById(R.id.floatingLocateButton);
         flb.setOnClickListener(v -> {
             if (rv != null && store != null && store.getActivePos() > -1)
-                    rv.scrollToPosition(store.getActivePos());
-                    flb.setVisibility(View.INVISIBLE);
+                rv.scrollToPosition(store.getActivePos());
         });
+        rv.setOnScrollChangeListener((view, i, i1, i2, i3) -> setLocaterButtonVisibility());
 
         //Create swipe action for items
         enableSwipeToDeleteAndUndo();
@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity
             }
             timerArc.start();
         }
-
+        setLocaterButtonVisibility();
     }
 
     /**
@@ -308,47 +308,96 @@ public class MainActivity extends AppCompatActivity
             preloader = new RecyclerViewPreloader<>(Glide.with(context), adapter, sizeProvider, rows * columns /*maxPreload*/);
             rv.addOnScrollListener(preloader);
         }
-        // Add the OnScrollListener
-        rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                super.onScrollStateChanged(recyclerView, newState);
+    }
 
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    // RecyclerView has stopped scrolling
-                    Log.d("RecyclerViewScroll", "RecyclerView has stopped scrolling.");
-                    boolean isVisible = adapter.isVisible(store.getImageObject(store.getActivePos()));
-                    Log.d("RecyclerViewScroll", "It's visible: " + Boolean.toString(isVisible));
-                    View locateButton = findViewById(R.id.floatingLocateButton);
-                    if (locateButton != null)
-                        locateButton.setVisibility(isVisible ? View.INVISIBLE : View.VISIBLE);
-
-                    // TODO: Add your code here to execute when scrolling stops.
-                    // For example, you could load more items, update UI elements,
-                    // or trigger some other action.
-
-                    // Example: Show a Toast
-                    // Toast.makeText(context, "RecyclerView stopped scrolling", Toast.LENGTH_SHORT).show();
-
-                } else if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
-                    // The user is actively dragging the RecyclerView
-                    Log.d("RecyclerViewScroll", "RecyclerView is being dragged.");
-                } else if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
-                    // The RecyclerView is currently animating to a final position after a drag or fling
-                    Log.d("RecyclerViewScroll", "RecyclerView is settling.");
+    /**
+     * Sets the visibility of the locate button based on the active image object.
+     *
+     * This method retrieves the active image object from the ImageStore and checks if it is effectively visible.
+     * If the active image is visible, the locate button's visibility is set to View.INVISIBLE; otherwise, it is set to View.VISIBLE.
+     */
+    private void setLocaterButtonVisibility() {
+        int activePosition = store.getActivePos();
+        if (activePosition > -1) {
+            ImageObject imageObject = store.getImageObject(activePosition);
+            if (imageObject != null) {
+                boolean isVisible = adapter.isVisible(store.getImageObject(store.getActivePos()));
+                View locateButton = findViewById(R.id.floatingLocateButton);
+                if (locateButton != null) {
+                    locateButton.setVisibility(isVisible ? View.INVISIBLE : View.VISIBLE);
+                    updateLocateButtonToActiveImage();
                 }
             }
-
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                // This method is called when the RecyclerView is scrolled.
-                // dx and dy are the amount of change in pixels.
-                // You can use this if you need to react to continuous scrolling.
-            }
-        });
-
+        }
     }
+    private Uri lastSetLocateButtonURI = null;
+
+    /**
+     * Checks if a view and its ancestors are effectively visible.
+     *
+     * A view is considered effectively visible if it is not null, its own visibility is
+     * set to {@link View#VISIBLE}, and all of its parent views (up the hierarchy)
+     * have their own visibility set to {@link View#VISIBLE}.
+     *
+     * @param view The view to check for effective visibility.
+     * @return True if the view and its ancestors are effectively visible, false otherwise.
+     */
+    public boolean isEffectivelyVisible(View view) {
+        if (view == null) {
+            return false;
+        }
+
+        // Check the view's own visibility
+        if (view.getVisibility() != View.VISIBLE) {
+            return false;
+        }
+
+        // Recursively check parent's visibility
+        ViewParent parent = view.getParent();
+        if (parent instanceof View) {
+            return isEffectivelyVisible((View) parent);
+        } else {
+            // If no more parents, the view is effectively visible
+            return true;
+        }
+    }
+    /**
+     * Updates the locate button to display the active image from ImageStore.
+     *
+     * This method retrieves the active image object from ImageStore and updates the
+     * locate button's image if it is effectively visible. If the active image has changed,
+     * the button's image is updated; otherwise, no change is made.
+     *
+     * @see #isEffectivelyVisible(View)
+     * @see ImageObject#getThumbUri(Context)
+     */
+    private void updateLocateButtonToActiveImage() {
+        // Get the locate button
+        View locateButton = findViewById(R.id.locateButtonImageView);
+
+        if (locateButton != null && isEffectivelyVisible(locateButton)) {
+            // Get the active image object from ImageStore
+            int activePosition = store.getActivePos();
+            if (activePosition >= 0) {
+                ImageObject activeImage = store.getImageObject(activePosition);
+                if (activeImage != null) {
+                    // Update the button's image to the active image
+                    // Assuming you're using a FloatingActionButton or ImageView
+                   if (locateButton instanceof ImageView) {
+                        ImageView fab = (ImageView) locateButton;
+                        Uri activeImageURI = activeImage.getThumbUri(getBaseContext());
+                        if (!activeImageURI.equals(lastSetLocateButtonURI)) {
+                            // If you want to set a specific drawable based on the active image
+                            // You might need to customize this part depending on how you store or reference images
+                            fab.setImageURI(activeImageURI);
+                            lastSetLocateButtonURI=activeImageURI;
+                        }// example placeholder
+                    }
+                }
+            }
+        }
+    }
+
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -361,22 +410,26 @@ public class MainActivity extends AppCompatActivity
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menuactions, menu);
         //Special handling for switch control (onOptionsItemSelected doesn't work)
-        toggler = menu.findItem(R.id.app_bar_switch).getActionView().findViewById(R.id.switch_control);
-        toggler.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked && store.size() == 0) {
-                toggler.setChecked(false);
-                Snackbar
-                        .make(constraintLayout, getString(R.string.toast_add_an_image_toggle), Snackbar.LENGTH_LONG)
-                        .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
-                        .setTextColor(getColor(R.color.white))
-                        .show();
-                processToggle(false);
-            } else {
-                processToggle(isChecked);
-            }
-        });
-        //Start changing the wallpaper
-        initializeWallpaperToggle();
+        try {
+            toggler = Objects.requireNonNull(menu.findItem(R.id.app_bar_switch).getActionView()).findViewById(R.id.switch_control);
+            toggler.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked && store.size() == 0) {
+                    toggler.setChecked(false);
+                    Snackbar
+                            .make(constraintLayout, getString(R.string.toast_add_an_image_toggle), Snackbar.LENGTH_LONG)
+                            .setBackgroundTint(getColor(androidx.cardview.R.color.cardview_dark_background))
+                            .setTextColor(getColor(R.color.white))
+                            .show();
+                    processToggle(false);
+                } else {
+                    processToggle(isChecked);
+                }
+            });
+            //Start changing the wallpaper
+            initializeWallpaperToggle();
+        } catch (NullPointerException e) {
+            Log.e("MainActivity", "onCreateOptionsMenu: NullPointerException: " + e.getMessage(),e);
+        }
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -435,7 +488,8 @@ public class MainActivity extends AppCompatActivity
                     }
                 });
     }
-    private void handleExportResult(Intent result, PendingIntent pendingIntent) {
+
+   private void handleExportResult(Intent result, PendingIntent pendingIntent) {
 
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -448,7 +502,7 @@ public class MainActivity extends AppCompatActivity
                 .setOnlyAlertOnce(true)
                 .setAutoCancel(true);
 
-        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.EXPORT_UUID);
+        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.EXPORT_UUID, Serializable.class);
         if (serialUUID != null) {
             int notificationId = ThreadLocalRandom.current().nextInt(1000);
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
@@ -495,7 +549,7 @@ public class MainActivity extends AppCompatActivity
                 .setOnlyAlertOnce(true)
                 .setAutoCancel(true);
 
-        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.IMPORT_UUID);
+        Serializable serialUUID = result.getSerializableExtra(SettingsActivity.IMPORT_UUID, Serializable.class);
         if (serialUUID != null) {
             int notificationId = ThreadLocalRandom.current().nextInt(1000);
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
@@ -655,6 +709,7 @@ public class MainActivity extends AppCompatActivity
                         //adapter.notifyDataSetChanged();
                     })
                     .show();
+            setLocaterButtonVisibility();
         }
     }
 
@@ -778,38 +833,40 @@ public class MainActivity extends AppCompatActivity
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
-            setupRecyclerView();
-        } else if (key.equals(getResources().getString(R.string.preference_idle))) {
-            if (sharedPreferences.getBoolean(key, false)) {
+        if (key != null) {
+            if (key.equals(getResources().getString(R.string.preference_columns)) && rv != null) {
+                setupRecyclerView();
+            } else if (key.equals(getResources().getString(R.string.preference_idle))) {
+                if (sharedPreferences.getBoolean(key, false)) {
+                    if (PreferenceHelper.isActive(this)) {
+                        //reschedule the job since we cannot change existing constraints
+                        WallpaperWorker.scheduleRandomWallpaper(context);
+                    }
+                }
+            } else if (key.equals(getString(R.string.preference_time_delay))) {
                 if (PreferenceHelper.isActive(this)) {
-                    //reschedule the job since we cannot change existing constraints
                     WallpaperWorker.scheduleRandomWallpaper(context);
                 }
-            }
-        } else if (key.equals(getString(R.string.preference_time_delay))) {
-            if (PreferenceHelper.isActive(this)) {
-                WallpaperWorker.scheduleRandomWallpaper(context);
-            }
-        } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
-            runOnUiThread(() -> adapter.notifyItemRangeChanged(0, store.getImageObjectArray().length));
-        else if (key.equals(getString(R.string.preference_worker_last_queue))) {
-            if (PreferenceHelper.isActive(context))
-                timerArc.start();
-        } else if (key.equals("isActive")) {
-            if (PreferenceHelper.isActive(context))
-                timerArc.start();
-            else {
-                timerArc.stop();
-                WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
-            }
-        } else if (key.equals(getString(R.string.last_wallpaper))) {
-            String id = sharedPreferences.getString(getString(R.string.last_wallpaper), "");
-            //Catch any code that is changing the last wallpaper preference
-            // without updating the store.
-            if (id != null && !id.equals(store.getActiveId())) {
-                store.setActive(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
-                invalidateOptionsMenu();
+            } else if (!isloading && key.equals(getString(R.string.preference_card_stats)))
+                runOnUiThread(() -> adapter.notifyItemRangeChanged(0, store.getImageObjectArray().length));
+            else if (key.equals(getString(R.string.preference_worker_last_queue))) {
+                if (PreferenceHelper.isActive(context))
+                    timerArc.start();
+            } else if (key.equals("isActive")) {
+                if (PreferenceHelper.isActive(context))
+                    timerArc.start();
+                else {
+                    timerArc.stop();
+                    WorkManager.getInstance(context).cancelAllWorkByTag(context.getString(R.string.work_random_wallpaper_id));
+                }
+            } else if (key.equals(getString(R.string.last_wallpaper))) {
+                String id = sharedPreferences.getString(getString(R.string.last_wallpaper), "");
+                //Catch any code that is changing the last wallpaper preference
+                // without updating the store.
+                if (!id.equals(store.getActiveId())) {
+                    store.setActive(sharedPreferences.getString(getString(R.string.last_wallpaper), ""));
+                    invalidateOptionsMenu();
+                }
             }
         }
     }

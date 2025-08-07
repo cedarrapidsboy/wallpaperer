@@ -113,5 +113,7 @@
     <string name="preference_export_summary">Copy all of the images to one or more ZIP file(s). The files can be found in this device\'s Downloads directory.</string>
     <string name="preference_export_key">preference_export</string>
     <string name="scroll_to_active_image">Scroll to active image.</string>
+    <string name="preview_of_the_active_image">Preview of the active image.</string>
+    <string name="location_icon">Location icon.</string>
 
 </resources>
