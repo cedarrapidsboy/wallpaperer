@@ -64,10 +64,10 @@
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/floatingLocateButton"
-        android:layout_width="@dimen/_56sdp"
-        android:layout_height="@dimen/_56sdp"
-        android:layout_marginStart="@dimen/button_padding"
-        android:layout_marginBottom="@dimen/button_padding"
+        android:layout_width="@dimen/_72sdp"
+        android:layout_height="@dimen/_72sdp"
+        android:layout_marginStart="@dimen/_4sdp"
+        android:layout_marginBottom="@dimen/_4sdp"
         android:clickable="true"
         android:focusable="true"
         android:visibility="invisible"
@@ -104,8 +104,9 @@
                 android:padding="4dp">
 
                 <ImageView
-                    android:layout_width="@dimen/_12sdp"
-                    android:layout_height="@dimen/_12sdp"
+                    android:layout_width="@dimen/_14sdp"
+                    android:layout_height="@dimen/_14sdp"
+                    android:padding="@dimen/_2sdp"
                     android:contentDescription="@string/location_icon"
                     android:src="@drawable/baseline_location_searching_24" />
             </FrameLayout>
