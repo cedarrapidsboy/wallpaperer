@@ -78,4 +78,8 @@ dependencies {
 
     // To get bitmap colors
     implementation 'androidx.palette:palette:1.0.0'
+
+    implementation "androidx.lifecycle:lifecycle-viewmodel:2.9.2" // Or latest version for Java
+    implementation "androidx.lifecycle:lifecycle-livedata:2.9.2" // Or latest version for LiveData
+
 }

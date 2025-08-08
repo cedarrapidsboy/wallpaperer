@@ -115,5 +115,7 @@
     <string name="scroll_to_active_image">Scroll to active image.</string>
     <string name="preview_of_the_active_image">Preview of the active image.</string>
     <string name="location_icon">Location icon.</string>
+    <string name="error_sharing_image">"Error sharing image: "</string>
+    <string name="of">" of "</string>
 
 </resources>

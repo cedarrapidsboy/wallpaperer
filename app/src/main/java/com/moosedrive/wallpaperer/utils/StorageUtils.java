@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
@@ -30,13 +31,11 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -54,6 +53,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,6 +62,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class StorageUtils {
+    private static final String LOG_TAG = StorageUtils.class.getSimpleName();
 
     private static final String THUMBDIR = "thumbs";
     private static final int BUFFER_SIZE = 4096;
@@ -92,11 +93,13 @@ public class StorageUtils {
 
         // Finally, we create a new bitmap of the specified size and draw our new,
         // scaled bitmap onto it.
-        Bitmap dest = Bitmap.createBitmap(newWidth, newHeight, source.getConfig());
-        Canvas canvas = new Canvas(dest);
-        canvas.drawBitmap(source, null, targetRect, null);
-
-        return dest;
+        if (source.getConfig() != null) {
+            Bitmap dest = Bitmap.createBitmap(newWidth, newHeight, source.getConfig());
+            Canvas canvas = new Canvas(dest);
+            canvas.drawBitmap(source, null, targetRect, null);
+            return dest;
+        }
+        return source;
     }
 
     @SuppressWarnings("unused")
@@ -134,9 +137,9 @@ public class StorageUtils {
     public static String getHash(Context context, Uri uri) {
         try (InputStream source = context.getContentResolver().openInputStream(uri)) {
 
-            return getSHA256(source, 1024);
+            return getSHA256(Objects.requireNonNull(source, "getHash: Uri did not result in a valid input stream."), 1024);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "Exception in getHash for URI: " + uri, e);
             return null;
         }
     }
@@ -152,9 +155,9 @@ public class StorageUtils {
             try {
                 Uri newThumbUri = saveThumbnail(context, imgObj.getUri(), imgObj.getId());
                 if (newThumbUri != null)
-                    thumbnailFile = new File(newThumbUri.getPath());
+                    thumbnailFile = new File(Objects.requireNonNull(newThumbUri.getPath()));
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(LOG_TAG, "Failed to generate or save thumbnail for: " + imgObj.getUri(), e);
                 return null;
             }
         }
@@ -177,11 +180,11 @@ public class StorageUtils {
             File destinationFile = new File(destination);
 
             try (InputStream input = context.getContentResolver().openInputStream(sourceuri);
-                 BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+                 BufferedOutputStream bos = new BufferedOutputStream(Files.newOutputStream(Paths.get(destination)))) {
                 // Recompress before writing to new file
                 Bitmap originalBm = BitmapFactory.decodeStream(input);
                 originalBm = resizeBitmapCenter(512, 512, originalBm, true);
-                originalBm.compress(Bitmap.CompressFormat.WEBP, 50, bos);
+                originalBm.compress(Bitmap.CompressFormat.WEBP_LOSSY, 50, bos);
                 return Uri.fromFile(destinationFile);
             }
 
@@ -204,10 +207,10 @@ public class StorageUtils {
             File destinationFile = null;
             if (recompress) {
                 try (InputStream input = context.getContentResolver().openInputStream(sourceUri);
-                     BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+                     BufferedOutputStream bos = new BufferedOutputStream(Files.newOutputStream(Paths.get(destination)))) {
                     // Recompress before writing to new file
                     Bitmap originalBm = BitmapFactory.decodeStream(input);
-                    originalBm.compress(Bitmap.CompressFormat.WEBP, 75, bos);
+                    originalBm.compress(Bitmap.CompressFormat.WEBP_LOSSY, 75, bos);
                     destinationFile = new File(destination);
                 }
             }
@@ -222,7 +225,7 @@ public class StorageUtils {
     }
 
     private static void writeFile(String destination, BufferedInputStream bis) throws IOException {
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(destination))) {
+        try (BufferedOutputStream bos = new BufferedOutputStream(Files.newOutputStream(Paths.get(destination)))) {
             // Write to new file unchanged
             int originalSize = bis.available();
 
@@ -246,9 +249,11 @@ public class StorageUtils {
     }
 
     public static long getFileSize(Uri uri) {
-        File file = new File(uri.getPath());
-        if (file.exists())
-            return file.length();
+        if (uri.getPath() != null) {
+            File file = new File(uri.getPath());
+            if (file.exists())
+                return file.length();
+        }
         return 0;
     }
 
@@ -268,7 +273,7 @@ public class StorageUtils {
                     openFileDescriptor(uri, "r")) {
                 exists = pfd != null;
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(LOG_TAG, "File source check failed for URI: " + uri, e);
             }
         }
         return exists;
@@ -276,7 +281,7 @@ public class StorageUtils {
 
     public static String getFileAttrib(Uri uri, String column, Context context) {
         String result = null;
-        if (uri.getScheme().equals("content")) {
+        if (Objects.equals(uri.getScheme(), "content")) {
             try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
                     int i = cursor.getColumnIndex(column);
@@ -288,9 +293,11 @@ public class StorageUtils {
         if (result == null) {
             if (column.equals(DocumentsContract.Document.COLUMN_DISPLAY_NAME)) {
                 result = uri.getPath();
-                int cut = result.lastIndexOf('/');
-                if (cut != -1) {
-                    result = result.substring(cut + 1);
+                if (result != null) {
+                    int cut = result.lastIndexOf('/');
+                    if (cut != -1) {
+                        result = result.substring(cut + 1);
+                    }
                 }
             } else {
                 result = "0";
@@ -362,7 +369,7 @@ public class StorageUtils {
             // Try to get creation date from Exif data
             try (InputStream fis = context.getContentResolver().openInputStream(uri)) {
                 // Expect to see debug messages: D/ExifInterface: No image meets the size requirements of a thumbnail image.
-                ExifInterface exifData = new ExifInterface(fis);
+                ExifInterface exifData = new ExifInterface(Objects.requireNonNull(fis));
                 StringBuilder sb_format = new StringBuilder();
                 StringBuilder sb_date = new StringBuilder();
                 // Get Date, Time, and TZ offset from Exif fields (default to +00:00 offset)
@@ -378,16 +385,16 @@ public class StorageUtils {
                     creationDate = ZonedDateTime.parse(sb_date.toString(), formatter).toInstant().toEpochMilli();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.w(LOG_TAG, "Failed to get creation date from EXIF for URI: " + uri, e);
             }
             // If all else fails, try to get creation date another way
-            BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(uri.getPath()).toURI()), BasicFileAttributes.class);
+            BasicFileAttributes attribs = Files.readAttributes(Paths.get(new File(Objects.requireNonNull(uri.getPath())).toURI()), BasicFileAttributes.class);
             if (creationDate == modDate && attribs.creationTime().toMillis() > 0)
                 creationDate = attribs.creationTime().toMillis();
         } catch (NoSuchFileException e) {
             //ignore -- couldn't resolve the uri to a file
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(LOG_TAG, "Failed to get file attributes for creation date for URI: " + uri, e);
         }
         return creationDate;
     }
@@ -438,7 +445,7 @@ public class StorageUtils {
                 });
                 exportResult = StorageUtils.makeBackup(orderedImages, this);
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(LOG_TAG, "ExportBackupWorker: Backup process failed.", e);
                 return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Export failed. Unable to create file.").build());
             }
             return Result.success(new Data.Builder().putInt(RESULT_CODE, exportResult).build());
@@ -466,7 +473,7 @@ public class StorageUtils {
         List<ImageObject> listObjs = new ArrayList<>(objs);
         Collections.reverse(listObjs);
         objStack.addAll(listObjs);
-        if (objs.size() > 0) {
+        if (!objs.isEmpty()) {
             if (volNum < 1)
                 volNum = 1;
             String outputPath = zipDirectory.getPath()
@@ -475,7 +482,7 @@ public class StorageUtils {
                     + ((volNum > 1) ? "-" + volNum : "")
                     + ".zip";
             try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
-                    new FileOutputStream(outputPath)))) {
+                    Files.newOutputStream(Paths.get(outputPath))))) {
 
                 byte[] data = new byte[BUFFER_SIZE];
                 long size = 0;
@@ -538,7 +545,7 @@ public class StorageUtils {
         @NonNull
         @Override
         public Result doWork() {
-            if (ImportData.getInstance().importSources.size() > 0) {
+            if (!ImportData.getInstance().importSources.isEmpty()) {
                 ArrayList<String> errorArchives = new ArrayList<>();
                 ArrayList<Uri> uriSources = ImportData.getInstance().importSources;
                 AtomicInteger i = new AtomicInteger(1);
@@ -549,7 +556,7 @@ public class StorageUtils {
                         if (importResult != 0)
                             errorArchives.add(zipUri.getLastPathSegment());
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Log.e(LOG_TAG, "ImportBackupWorker: Import process failed for archive: " + zipUri, e);
                         return Result.failure(new Data.Builder().putString(STATUS_MESSAGE,"Imported failed. Unable to open file.").build());
                     }
                     i.getAndIncrement();
@@ -557,7 +564,7 @@ public class StorageUtils {
                 StringBuilder sb = new StringBuilder("Imported ")
                     .append(uriSources.size() - errorArchives.size())
                     .append(" archives.");
-                if (errorArchives.size() > 0)
+                if (!errorArchives.isEmpty())
                     sb.append(" ").append(errorArchives.size()).append(" archives failed.");
                 setProgressAsync(new Data.Builder().putString(STATUS_MESSAGE,sb.toString()).build());
                 return Result.success();
@@ -573,7 +580,7 @@ public class StorageUtils {
         int size = 0;
         try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));
              Reader reader = new BufferedReader(new InputStreamReader
-                     (zipIn, Charset.forName(StandardCharsets.UTF_8.name())))) {
+                     (zipIn, StandardCharsets.UTF_8))) {
             ZipEntry zipEntry = zipIn.getNextEntry();
             while (zipEntry != null) {
                 if (zipEntry.getName().equals("manifest.json")) {
@@ -595,7 +602,7 @@ public class StorageUtils {
         }
         int loopCount = 0;
         long lastProgressUpdate = System.currentTimeMillis();
-        if (objs.size() > 0) {
+        if (!objs.isEmpty()) {
             //read all files from ZIP and slot into the
             ArrayList<ImageObject> col = new ArrayList<>(store.getReferenceObjects());
             try (ZipInputStream zipIn = new ZipInputStream(context.getContentResolver().openInputStream(backupZipUri));

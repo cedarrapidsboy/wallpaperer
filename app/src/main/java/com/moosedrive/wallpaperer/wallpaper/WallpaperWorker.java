@@ -1,5 +1,6 @@
 package com.moosedrive.wallpaperer.wallpaper;
 
+import android.annotation.SuppressLint;
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -8,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
 
@@ -30,6 +32,7 @@ import com.moosedrive.wallpaperer.utils.StorageUtils;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 
@@ -37,6 +40,8 @@ import java.util.concurrent.TimeUnit;
  * The type Wallpaper worker.
  */
 public class WallpaperWorker extends Worker {
+
+    private static final String TAG = "WallpaperWorker";
 
     private final ImageStore store;
     private ImageObject imgObject;
@@ -123,6 +128,7 @@ public class WallpaperWorker extends Worker {
         }
     }
 
+    @SuppressLint("ObsoleteSdkInt")
     @NonNull
     @Override
     public Result doWork() {
@@ -152,20 +158,21 @@ public class WallpaperWorker extends Worker {
                 try (ParcelFileDescriptor pfd = getApplicationContext().
                         getContentResolver().
                         openFileDescriptor(imgUri, "r")) {
-                    final Bitmap bitmapSource = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
+                    final Bitmap bitmapSource = BitmapFactory.decodeFileDescriptor(Objects.requireNonNull(pfd).getFileDescriptor());
                     new Thread(() -> {
                         try {
                             boolean crop = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean(getApplicationContext().getString(R.string.preference_image_crop), true);
                             Bitmap bitmap = StorageUtils.resizeBitmapCenter(width, height, bitmapSource, crop);
                             WallpaperManager.getInstance(getApplicationContext()).setBitmap(bitmap);
+                            Log.i(TAG, "Wallpaper set to: " + imgObject.getName());
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            Log.e(TAG, "Error setting wallpaper: " + imgObject.getName(), e);
                         }
                     }).start();
                 } catch (IOException e) {
                     //couldn't open image - remove it from the list
+                    Log.e(TAG, "Error opening image file: " + imgUri + ". Removing from store.", e);
                     store.delImageObject(imgObject.getId());
-                    e.printStackTrace();
                 } finally {
                     store.saveToPrefs();
                 }

@@ -14,8 +14,6 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -41,6 +39,7 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -97,7 +96,6 @@ public class MainActivity extends AppCompatActivity
     RVAdapter adapter;
     ConstraintLayout constraintLayout;
     RecyclerViewPreloader<ImageObject> preloader;
-    private ProgressDialogFragment loadingDialog;
     private Context context;
     private SwitchMaterial toggler;
     private TimerArc timerArc;
@@ -105,7 +103,8 @@ public class MainActivity extends AppCompatActivity
     private ActivityResultLauncher<Intent> settingsResultLauncher;
 
     private ActivityResultLauncher<PickVisualMediaRequest> pickMultipleMediaLauncher;
-
+    private ProgressViewModel progressViewModel; // ADD THIS
+    private static final String PROGRESS_DIALOG_TAG = "progress_dialog";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
@@ -113,6 +112,9 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         context = this;
         store = ImageStore.getInstance(getApplicationContext());
+
+        // Initialize ViewModel
+        progressViewModel = new ViewModelProvider(this).get(ProgressViewModel.class);
 
         setContentView(R.layout.activity_main);
         PreferenceManager.setDefaultValues(context, R.xml.root_preferences, false);
@@ -161,9 +163,28 @@ public class MainActivity extends AppCompatActivity
             } catch (ExecutionException | InterruptedException e) {
                 Log.e("MainActivity", "onCreate: Error scheduling wallpaper change",e);
             }
-            timerArc.start();
+            if (timerArc != null) timerArc.start();
         }
         setLocaterButtonVisibility();
+
+        // Observe the isVisible state to show/hide the dialog fragment
+        progressViewModel.getUiState().observe(this, state -> {
+            if (state != null) {
+                ProgressDialogFragment existingDialog = (ProgressDialogFragment) getSupportFragmentManager().findFragmentByTag(PROGRESS_DIALOG_TAG);
+                if (state.isVisible) {
+                    if (existingDialog == null) {
+                        ProgressDialogFragment dialogFragment = new ProgressDialogFragment();
+                        dialogFragment.show(getSupportFragmentManager(), PROGRESS_DIALOG_TAG);
+                    }
+                } else {
+                    if (existingDialog != null && existingDialog.isAdded() && existingDialog.getDialog() != null && existingDialog.getDialog().isShowing()) {
+                        existingDialog.dismissAllowingStateLoss();
+                    }
+                }
+            }
+        });
+
+
     }
 
     private void registerPhotoPickerLaunchers() {
@@ -175,6 +196,7 @@ public class MainActivity extends AppCompatActivity
                 Log.d("PhotoPicker", "Multiple Selected URIs: " + uris.size());
                 StorageUtils.CleanUpOrphans(getApplicationContext(), getFilesDir().getAbsolutePath()); // Keep if necessary
                 HashSet<Uri> sources = new HashSet<>(uris); // Convert List<Uri> to HashSet<Uri>
+                // Ensure WallpaperManager gets the listener
                 WallpaperManager.getInstance().addWallpaperAddedListener(this);
                 WallpaperManager.getInstance().addWallpapers(this, sources, ImageStore.getInstance(getApplicationContext()));
             } else {
@@ -308,15 +330,22 @@ public class MainActivity extends AppCompatActivity
      * If the active image is visible, the locate button's visibility is set to View.INVISIBLE; otherwise, it is set to View.VISIBLE.
      */
     private void setLocaterButtonVisibility() {
-        int activePosition = store.getActivePos();
-        if (activePosition > -1) {
-            ImageObject imageObject = store.getImageObject(activePosition);
-            if (imageObject != null) {
-                boolean isVisible = adapter.isVisible(store.getImageObject(store.getActivePos()));
-                View locateButton = findViewById(R.id.floatingLocateButton);
-                if (locateButton != null) {
-                    locateButton.setVisibility(isVisible ? View.INVISIBLE : View.VISIBLE);
-                    updateLocateButtonToActiveImage();
+        if (store.size() == 0) {
+            View locateButton = findViewById(R.id.floatingLocateButton);
+            if (locateButton != null) {
+                locateButton.setVisibility(View.INVISIBLE);
+            }
+        } else {
+            int activePosition = store.getActivePos();
+            if (activePosition > -1) {
+                ImageObject imageObject = store.getImageObject(activePosition);
+                if (imageObject != null) {
+                    boolean isVisible = adapter.isVisible(store.getImageObject(store.getActivePos()));
+                    View locateButton = findViewById(R.id.floatingLocateButton);
+                    if (locateButton != null) {
+                        locateButton.setVisibility(isVisible ? View.INVISIBLE : View.VISIBLE);
+                        updateLocateButtonToActiveImage();
+                    }
                 }
             }
         }
@@ -902,43 +931,72 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public void onWallpaperLoadingStarted(int size, String message) {
+    public void onWallpaperLoadingStarted(final int size, final String message) {
         runOnUiThread(() -> {
-            loadingDialog = ProgressDialogFragment.newInstance(size);
-            loadingDialog.showNow(getSupportFragmentManager(), "add_progress");
-            if (message != null){
-                loadingDialog.setMessage(message);
-            }
+            // Determine if indeterminate based on size.
+            // A common convention is size <= 0 means indeterminate.
+            boolean isIndeterminate = (size <= 0);
+            String dialogMessage = (message != null) ? message : (isIndeterminate ? "Loading..." : "Loading: 0/" + size);
+
+            // If size is 0 or less, maxProgress for the dialog should reflect that it's indeterminate
+            // or a default value if your ProgressDialogState handles indeterminate differently.
+            // For simplicity, let's pass the actual size, and ProgressViewModel can decide
+            // based on isIndeterminate.
+            progressViewModel.showDialog(size, dialogMessage, isIndeterminate);
         });
     }
 
     @Override
-    public void onWallpaperLoadingIncrement(int inc) {
+    public void onWallpaperLoadingIncrement(final int inc) {
         runOnUiThread(() -> {
-            if (inc < 0)
-                loadingDialog.setIndeterminate(true);
-            else {
-                loadingDialog.setIndeterminate(false);
-                loadingDialog.incrementProgressBy(inc);
+            ProgressDialogState currentState = progressViewModel.getUiState().getValue();
+            if (currentState != null && currentState.isVisible) { // Only update if dialog is visible
+                if (inc < 0) {
+                    // This typically means set to indeterminate mode.
+                    // The message might also need an update if it was showing progress numbers.
+                    progressViewModel.updateProgress(currentState.currentProgress, "Processing...", true);
+                } else {
+                    // Increment progress. Message might need updating if it includes progress numbers.
+                    // You might need to fetch the maxProgress from the current state to format the message.
+                    int newProgress = currentState.currentProgress + inc;
+                    String message = "Loading: " + newProgress + "/" + currentState.maxProgress;
+                    if (currentState.isIndeterminate || currentState.maxProgress <= 0) { // If it was indeterminate or max is 0
+                        message = "Processing..."; // Or some other appropriate message
+                    }
+                    progressViewModel.updateProgress(newProgress, message, false);
+                }
             }
         });
     }
 
     @SuppressLint("NotifyDataSetChanged")
     @Override
-    public void onWallpaperLoadingFinished(int status, String msg) {
-        if (loadingDialog != null)
-            runOnUiThread(() -> loadingDialog.dismiss());
-        WallpaperManager.getInstance().removeWallpaperAddedListener(this);
-        store.saveToPrefs();
-        invalidateOptionsMenu();
-        if (status != IWallpaperAddedListener.SUCCESS) {
-            new Handler(Looper.getMainLooper()).post(() -> new AlertDialog.Builder(this)
-                    .setTitle("Error(s) loading images")
-                    .setMessage((msg != null) ? msg : "Unknown error.")
-                    .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
-                    .show());
-        }
+    public void onWallpaperLoadingFinished(final int status, final String msg) {
+        runOnUiThread(() -> {
+            progressViewModel.hideDialog(); // This will trigger the observer in MainActivity/Fragment to dismiss the dialog
+        });
+
+        // The rest of your logic can remain outside runOnUiThread if it doesn't directly touch views
+        // or ViewModel LiveData that isn't already being observed on the main thread.
+        // However, operations like store.saveToPrefs() or invalidateOptionsMenu()
+        // if they trigger UI changes indirectly, are safer on the UI thread.
+
+        // Example: Running UI related non-ViewModel tasks also on UI thread for safety
+        runOnUiThread(() -> {
+            WallpaperManager.getInstance().removeWallpaperAddedListener(MainActivity.this); // 'this' might need to be MainActivity.this if in an anonymous class
+            if (store != null) { // Add null check for store
+                store.saveToPrefs();
+            }
+            invalidateOptionsMenu();
+
+            if (status != IWallpaperAddedListener.SUCCESS) { // Assuming SUCCESS is a defined constant
+                new AlertDialog.Builder(MainActivity.this) // Use MainActivity.this for context
+                        .setTitle("Error(s) loading images")
+                        .setMessage((msg != null) ? msg : "Unknown error.")
+                        .setPositiveButton("Got it", (dialog2, which2) -> dialog2.dismiss())
+                        .show();
+            }
+        });
     }
 
     @SuppressLint("NotifyDataSetChanged")

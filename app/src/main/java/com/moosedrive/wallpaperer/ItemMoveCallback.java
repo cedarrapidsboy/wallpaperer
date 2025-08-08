@@ -38,9 +38,10 @@ abstract public class ItemMoveCallback extends ItemTouchHelper.SimpleCallback {
     private final int intrinsicWidth;
     private final int intrinsicHeight;
     /**
-     * Instantiates a new Drag to move callback.
+     * Instantiates a new ItemMoveCallback.
+     * This callback enables drag-and-drop and swipe-to-delete functionality for items in a RecyclerView.
      *
-     * @param myRv the my rv
+     * @param myRv The RecyclerView to which this callback will be attached.
      */
     public ItemMoveCallback(RecyclerView myRv) {
         super(ItemTouchHelper.UP
@@ -61,9 +62,15 @@ abstract public class ItemMoveCallback extends ItemTouchHelper.SimpleCallback {
     }
 
     /**
-     * An item is dragged. Do some scaling to visually indicate the action.
-     * @param viewHolder
-     * @param actionState
+     * Called when the ViewHolder swiped or dragged by the ItemTouchHelper is changed.
+     * <p>
+     * If you override this method, you should call super.
+     *
+     * @param viewHolder  The new ViewHolder that is being swiped or dragged. Might be null if
+     *                    it is cleared.
+     * @param actionState The current action state. Might be {@link ItemTouchHelper#ACTION_STATE_IDLE},
+     *                    {@link ItemTouchHelper#ACTION_STATE_SWIPE} or
+     *                    {@link ItemTouchHelper#ACTION_STATE_DRAG}.
      */
     @Override
     public void onSelectedChanged(RecyclerView.ViewHolder viewHolder, int actionState) {
@@ -78,9 +85,13 @@ abstract public class ItemMoveCallback extends ItemTouchHelper.SimpleCallback {
     }
 
     /**
-     * Scale the view holder a percentage of its original size
-     * @param view A View
-     * @param scale 1.0 == original size, 0.0 minimum
+     * Scales the provided view by a specified percentage of its original size.
+     * The scaling is animated over a short duration.
+     *
+     * @param view The View object to be scaled. Cannot be null.
+     * @param scale The desired scale factor. 1.0 represents the original size,
+     *              while 0.0 represents the minimum possible size (effectively invisible).
+     *              Values less than 0.0 will be treated as 0.0.
      */
     private void scaleView(@NonNull View view, float scale) {
         ObjectAnimator scaleUp = ObjectAnimator.ofPropertyValuesHolder(
@@ -93,9 +104,16 @@ abstract public class ItemMoveCallback extends ItemTouchHelper.SimpleCallback {
     }
 
     /**
-     * Scale all views except the one provided
-     * @param excludeView a View
-     * @param scale 1.0 == original size, 0.0 minimum
+     * Scales all views in the RecyclerView except for the specified view.
+     * This is used to visually indicate which item is being dragged or has been released.
+     *
+     * @param excludeView The view that should not be scaled. Typically, this is the view being dragged.
+     * @param scale       The scaling factor to apply to the other views.
+     *                    1.0 represents the original size.
+     *                    Values less than 1.0 will shrink the views.
+     *                    Values greater than 1.0 will enlarge the views.
+     *                    A value of 0.0 will make the views invisible (minimum scale).
+     *                    Negative values are treated as 0.0.
      */
     private void scaleOthers(View excludeView, float scale) {
         int otherCards = myRv.getChildCount();

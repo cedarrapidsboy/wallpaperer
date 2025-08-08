@@ -10,6 +10,22 @@ import androidx.preference.DialogPreference;
 
 import java.util.Locale;
 
+/**
+ * A DialogPreference that allows the user to select a time (hour and minute).
+ * <p>
+ * The selected time is stored as a string in the format "HH:mm" (e.g., "08:30").
+ * This class provides helper methods to parse and format time strings.
+ * </p>
+ * <p>
+ * Example usage in XML:
+ * <pre>{@code
+ * <com.moosedrive.wallpaperer.TimeDialogPreference
+ *     android:key="time_preference_key"
+ *     android:title="Select Time"
+ *     android:defaultValue="12:00" />
+ * }</pre>
+ * </p>
+ */
 public class TimeDialogPreference extends DialogPreference {
     public int hour = 0;
     public int minute = 0;

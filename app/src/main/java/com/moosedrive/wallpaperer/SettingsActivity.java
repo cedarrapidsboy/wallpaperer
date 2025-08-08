@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.util.Log;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -27,6 +28,23 @@ import com.moosedrive.wallpaperer.utils.StorageUtils;
 
 import java.util.UUID;
 
+/**
+ * Activity for managing application settings.
+ * <p>
+ * This activity provides a user interface for configuring various aspects of the application.
+ * It uses a {@link SettingsFragment} to display and manage preferences.
+ * <p>
+ * Key functionalities include:
+ * <ul>
+ *     <li>Displaying application settings using {@link PreferenceFragmentCompat}.</li>
+ *     <li>Handling import and export of application data (backups).</li>
+ *     <li>Managing battery optimization settings to ensure proper background operation.</li>
+ *     <li>Providing custom dialogs for specific preference types (e.g., {@link TimeDialogPreference}).</li>
+ * </ul>
+ * <p>
+ * Constants for result codes and intent extras related to import/export operations are defined here.
+ * The activity also sets up the action bar with a "home" button for navigation.
+ */
 public class SettingsActivity extends AppCompatActivity {
 
     public static final int IMPORT_RESULT_CODE = 5;
@@ -147,7 +165,14 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         /**
-         * For when the import function is used and we need a ZIP chooser.
+         * Registers an activity result launcher for the import chooser.
+         * <p>
+         * This method is called when the import function is used and a ZIP chooser is needed.
+         * It handles the result of the chooser, processing the selected ZIP file(s) for import.
+         * If the result is OK, it retrieves the URI(s) of the selected file(s),
+         * takes persistable URI permissions, and adds the URI(s) to the import sources.
+         * It then initiates a background worker to perform the import operation.
+         * Finally, it sets the result of the activity and finishes it.
          */
         private void registerImportChooser() {
             importChooserResultLauncher = registerForActivityResult(
@@ -171,7 +196,7 @@ public class SettingsActivity extends AppCompatActivity {
                                             ImportData.getInstance().importSources.add(uri);
                                         }
                                         catch (SecurityException e){
-                                            e.printStackTrace();
+                                            Log.e(SettingsActivity.class.getSimpleName(), "Unable to get persistable URI permission for " + uri + ". Will attempt to import anyway. This could be problematic for ContentObserver.", e);
                                         }
 
                                     }

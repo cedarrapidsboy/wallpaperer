@@ -8,6 +8,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceDialogFragmentCompat;
 
+/**
+ * A dialog fragment that allows the user to select a time.
+ * This class extends PreferenceDialogFragmentCompat, which is a support library class that provides a
+ * dialog fragment for use with preferences.
+ */
 public class TimeDialogFragment extends PreferenceDialogFragmentCompat {
 
     TimePicker timePicker = null;

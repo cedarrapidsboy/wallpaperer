@@ -14,10 +14,46 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 
+import androidx.annotation.NonNull;
+
 import com.moosedrive.wallpaperer.utils.PreferenceHelper;
 
 import java.util.Date;
 
+/**
+ * A custom view that displays a circular progress arc, typically used for timers.
+ *
+ * <p>The TimerArc draws a colored arc that animates to fill a circle,
+ * representing the progress of a timer. The arc starts at the 12 o'clock position
+ * and fills clockwise.
+ *
+ * <p><b>XML attributes:</b>
+ * <ul>
+ *   <li><code>app:ringColor</code>: The color of the progress arc. Defaults to red.
+ * </ul>
+ *
+ * <p><b>Usage:</b>
+ * <pre>
+ * {@code
+ * <com.moosedrive.wallpaperer.TimerArc
+ *     android:id="@+id/timer_arc"
+ *     android:layout_width="100dp"
+ *     android:layout_height="100dp"
+ *     app:ringColor="@color/your_custom_color" />
+ *
+ * // In your Activity or Fragment:
+ * TimerArc timerArc = findViewById(R.id.timer_arc);
+ * timerArc.start(); // Starts the timer animation
+ * timerArc.stop();  // Stops the timer animation
+ * }
+ * </pre>
+ *
+ * <p>The timer's duration and progress are determined by values retrieved from
+ * {@link PreferenceHelper}.
+ *
+ * <p>The view is designed to be square. If different width and height are specified,
+ * the width will be used for both dimensions.
+ */
 public class TimerArc extends View {
     private static final int ARC_START_ANGLE = 270; // 12 o'clock
 
@@ -46,10 +82,8 @@ public class TimerArc extends View {
         int circleColor = Color.RED;
 
         if (attrs != null) {
-            TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.TimerArc);
-            if (ta != null) {
+            try (TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.TimerArc)) {
                 circleColor = ta.getColor(R.styleable.TimerArc_ringColor, circleColor);
-                ta.recycle();
             }
         }
 
@@ -82,7 +116,7 @@ public class TimerArc extends View {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
+    protected void onDraw(@NonNull Canvas canvas) {
         mCanvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
         if (mCircleSweepAngle > 0f) {

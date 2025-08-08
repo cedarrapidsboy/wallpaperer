@@ -1,5 +1,6 @@
 package com.moosedrive.wallpaperer;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -41,9 +42,15 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import me.zhanghai.android.fastscroll.PopupTextProvider;
 
+/**
+ * Adapter for the RecyclerView in the main activity. Displays a grid of images.
+ * Implements PopupTextProvider to show a popup with the current image number when scrolling.
+ * Implements ListPreloader.PreloadModelProvider to preload images for faster scrolling.
+ */
 public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> implements PopupTextProvider, ListPreloader.PreloadModelProvider<ImageObject> {
 
     final ImageStore store;
@@ -66,9 +73,9 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
      */
     public static int getCardSize(Context context, int columns) {
         //int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
-        int height = Math.round(Resources.getSystem().getDisplayMetrics().heightPixels);
+        int height = Resources.getSystem().getDisplayMetrics().heightPixels;
         //int columns = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString("preference_columns", "2"));
-        int width = Math.round(Resources.getSystem().getDisplayMetrics().widthPixels);
+        int width = Resources.getSystem().getDisplayMetrics().widthPixels;
         // Set lower limit on thumbnail size (need space for buttons and metadata text) based on display size
         if (width / columns < (int) context.getResources().getDimension(R.dimen.card_size_min))
             columns = (int) (width / context.getResources().getDimension(R.dimen.card_size_min));
@@ -98,12 +105,33 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     public void onViewDetachedFromWindow(@NonNull ImageHolder holder) {
         super.onViewDetachedFromWindow(holder);
         ImageObject item = store.getImageObject(holder.getBindingAdapterPosition());
-        if (item != null && mVisibleItems.contains(item)) {
+        if (item != null) {
             mVisibleItems.remove(item);
         }
     }
 
 
+    /**
+     * Called by RecyclerView to display the data at the specified position. This method should
+     * update the contents of the {@link ImageHolder#itemView} to reflect the item at the given
+     * position.
+     * <p>
+     * Note that unlike {@link android.widget.ListView}, RecyclerView will not call this method
+     * again if the position of the item changes in the data set unless the item itself is
+     * invalidated or the new position cannot be determined. For this reason, you should only
+     * use the <code>position</code> parameter while acquiring the related data item inside
+     * this method and should not keep a copy of it. If you need the position of an item later
+     * on (e.g. in a click listener), use {@link ImageHolder#getBindingAdapterPosition()} which
+     * will have the updated adapter position.
+     * <p>
+     * Override {@link #onBindViewHolder(ImageHolder, int, List)} instead if Adapter can
+     * handle efficient partial bind.
+     *
+     * @param holder   The ViewHolder which should be updated to represent the contents of the
+     *                 item at the given position in the data set.
+     * @param position The position of the item within the adapter's data set.
+     */
+    @SuppressLint("ObsoleteSdkInt")
     @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     public void onBindViewHolder(@NonNull ImageHolder holder, int position) {
@@ -172,7 +200,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
     @NonNull
     @Override
     public String getPopupText(@NonNull View Mrecyclerview, int position) {
-        return (position + 1) + " of " + store.size();
+        return (position + 1) + context.getString(R.string.of) + store.size();
     }
 
     @NonNull
@@ -193,6 +221,10 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE);
     }
 
+    /**
+     * ViewHolder for the RecyclerView. Displays an image and its metadata.
+     * Implements View.OnClickListener to handle clicks on the image, share button, and set wallpaper button.
+     */
     public class ImageHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         final TextView tvDate;
         final ImageView ivImage;
@@ -237,16 +269,21 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ImageHolder> imple
             }
             if (clickListener != null && view == ivShare) {
                 ivShare.startAnimation(AnimationUtils.loadAnimation(context, R.anim.anim_change_wallpaper));
-                Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".provider", new File(img.getUri().getPath()));
-                Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                intent.putExtra(Intent.EXTRA_STREAM, uri);
-                intent.setType(img.getType());
-                if (intent.resolveActivity(packageManager) != null)
-                    context.startActivity(intent);
-                else
-                    Toast.makeText(context, context.getString(R.string.action_share_no_apps_configured), Toast.LENGTH_SHORT).show();
+                try {
+                    Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".provider", new File(Objects.requireNonNull(img.getUri().getPath())));
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.putExtra(Intent.EXTRA_STREAM, uri);
+                    intent.setType(img.getType());
+                    if (intent.resolveActivity(packageManager) != null)
+                        context.startActivity(intent);
+                    else
+                        Toast.makeText(context, context.getString(R.string.action_share_no_apps_configured), Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Toast.makeText(context, context.getString(R.string.error_sharing_image) + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+
             }
         }
     }
